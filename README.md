@@ -188,6 +188,10 @@ Bot vazifasi: mijozdan loyiha uchun kerakli ma'lumotlarni bosqichma-bosqich yig'
 - `/cancel` — joriy arizani bekor qilish
 - `/id` yoki `/myid` — o'z Telegram ID ni ko'rish
 - `/admin` yoki `/panel` — bot ichidagi admin summary (`telegram_admins` ro'yxatida bo'lsa)
+- `/leads` — so'nggi leadlar
+- `/lead <id>` — bitta lead detail
+- `/messages` — so'nggi kontakt xabarlari
+- `/message <id>` — bitta xabar detail
 
 ### Kerakli backend env'lar
 ```env

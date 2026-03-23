@@ -132,8 +132,14 @@ func (h *TelegramHandler) Webhook(c *gin.Context) {
 		_ = h.sendTelegramMessage(msg.Chat.ID, "Joriy jarayon bekor qilindi. Yangi ariza uchun /loyiha buyrug'ini yuboring.")
 	case lower == "/loyiha" || lower == "loyiha boshlash":
 		h.startLeadSession(msg)
-	case strings.HasPrefix(lower, "/admin"), strings.HasPrefix(lower, "/panel"), strings.HasPrefix(lower, "/leads"):
-		h.handleBotAdminCommand(msg, lower)
+	case strings.HasPrefix(lower, "/admin"),
+		strings.HasPrefix(lower, "/panel"),
+		strings.HasPrefix(lower, "/leads"),
+		strings.HasPrefix(lower, "/lead"),
+		strings.HasPrefix(lower, "/messages"),
+		strings.HasPrefix(lower, "/message"),
+		strings.HasPrefix(lower, "/stats"):
+		h.handleBotAdminCommand(msg, text)
 	default:
 		h.handleSessionInput(msg, text)
 	}
@@ -397,7 +403,7 @@ func (h *TelegramHandler) startLeadSession(msg *telegramMessage) {
 	_ = h.sendTelegramMessage(msg.Chat.ID, "Ajoyib. Loyiha uchun ariza boshladik.\n\n1/8 Ism-familiyangizni yuboring:")
 }
 
-func (h *TelegramHandler) handleBotAdminCommand(msg *telegramMessage, cmd string) {
+func (h *TelegramHandler) handleBotAdminCommand(msg *telegramMessage, rawText string) {
 	isAdmin, err := h.isTelegramAdmin(msg.From.ID)
 	if err != nil {
 		_ = h.sendTelegramMessage(msg.Chat.ID, "Xatolik yuz berdi. Keyinroq qayta urinib ko'ring.")
@@ -408,15 +414,56 @@ func (h *TelegramHandler) handleBotAdminCommand(msg *telegramMessage, cmd string
 		return
 	}
 
-	switch {
-	case strings.HasPrefix(cmd, "/leads"):
+	fields := strings.Fields(strings.TrimSpace(rawText))
+	if len(fields) == 0 {
+		return
+	}
+	cmd := strings.ToLower(fields[0])
+
+	switch cmd {
+	case "/leads":
 		h.sendRecentLeads(msg.Chat.ID)
+	case "/lead":
+		if len(fields) < 2 {
+			_ = h.sendTelegramMessage(msg.Chat.ID, "Foydalanish: /lead <id>")
+			return
+		}
+		id, parseErr := strconv.ParseInt(fields[1], 10, 64)
+		if parseErr != nil || id <= 0 {
+			_ = h.sendTelegramMessage(msg.Chat.ID, "Lead ID noto'g'ri")
+			return
+		}
+		h.sendLeadDetail(msg.Chat.ID, id)
+	case "/messages":
+		h.sendRecentContactMessages(msg.Chat.ID)
+	case "/message":
+		if len(fields) < 2 {
+			_ = h.sendTelegramMessage(msg.Chat.ID, "Foydalanish: /message <id>")
+			return
+		}
+		id, parseErr := strconv.ParseInt(fields[1], 10, 64)
+		if parseErr != nil || id <= 0 {
+			_ = h.sendTelegramMessage(msg.Chat.ID, "Xabar ID noto'g'ri")
+			return
+		}
+		h.sendContactMessageDetail(msg.Chat.ID, id)
 	default:
 		var total int64
 		var fresh int64
+		var newMessages int64
 		_ = h.db.QueryRow(`SELECT COUNT(*) FROM bot_project_leads`).Scan(&total)
 		_ = h.db.QueryRow(`SELECT COUNT(*) FROM bot_project_leads WHERE status='new'`).Scan(&fresh)
-		text := fmt.Sprintf("Bot admin panel\n\nJami lead: %d\nYangi lead: %d\n\nSo'nggi leadlar: /leads", total, fresh)
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM contact_messages WHERE status='new'`).Scan(&newMessages)
+
+		text := fmt.Sprintf(
+			"Bot admin panel\n\nJami lead: %d\nYangi lead: %d\nYangi xabar: %d\n\n"+
+				"Buyruqlar:\n"+
+				"/leads - so'nggi leadlar\n"+
+				"/lead <id> - lead detail\n"+
+				"/messages - so'nggi xabarlar\n"+
+				"/message <id> - xabar detail",
+			total, fresh, newMessages,
+		)
 		_ = h.sendTelegramMessage(msg.Chat.ID, text)
 	}
 }
@@ -451,6 +498,139 @@ func (h *TelegramHandler) sendRecentLeads(chatID int64) {
 		lines = append(lines, "Hozircha lead yo'q.")
 	}
 	_ = h.sendTelegramMessage(chatID, strings.Join(lines, "\n"))
+}
+
+func (h *TelegramHandler) sendLeadDetail(chatID, leadID int64) {
+	var (
+		fullName, company, phone, email, projectType, budget, deadline, description, status, username string
+		userID                                                                                        int64
+		createdAt                                                                                     time.Time
+	)
+
+	err := h.db.QueryRow(
+		`SELECT full_name, COALESCE(company, ''), COALESCE(phone, ''), COALESCE(email, ''),
+		        COALESCE(project_type, ''), COALESCE(budget, ''), COALESCE(deadline, ''),
+		        COALESCE(description, ''), status, COALESCE(telegram_username, ''), telegram_user_id, created_at
+		 FROM bot_project_leads
+		 WHERE id=$1`,
+		leadID,
+	).Scan(
+		&fullName, &company, &phone, &email,
+		&projectType, &budget, &deadline,
+		&description, &status, &username, &userID, &createdAt,
+	)
+	if err == sql.ErrNoRows {
+		_ = h.sendTelegramMessage(chatID, "Lead topilmadi.")
+		return
+	}
+	if err != nil {
+		_ = h.sendTelegramMessage(chatID, "Lead detailni olishda xatolik.")
+		return
+	}
+
+	text := fmt.Sprintf(
+		"Lead #%d\n\n"+
+			"Ism: %s\n"+
+			"Kompaniya: %s\n"+
+			"Telefon: %s\n"+
+			"Email: %s\n"+
+			"Loyiha turi: %s\n"+
+			"Byudjet: %s\n"+
+			"Muddat: %s\n"+
+			"Status: %s\n"+
+			"Telegram: @%s (%d)\n"+
+			"Sana: %s\n\n"+
+			"Tavsif:\n%s",
+		leadID,
+		valueOrDash(fullName),
+		valueOrDash(company),
+		valueOrDash(phone),
+		valueOrDash(email),
+		valueOrDash(projectType),
+		valueOrDash(budget),
+		valueOrDash(deadline),
+		valueOrDash(status),
+		valueOrDash(username),
+		userID,
+		createdAt.Format("2006-01-02 15:04"),
+		valueOrDash(description),
+	)
+
+	_ = h.sendTelegramMessage(chatID, text)
+}
+
+func (h *TelegramHandler) sendRecentContactMessages(chatID int64) {
+	rows, err := h.db.Query(
+		`SELECT id, COALESCE(name, ''), COALESCE(company, ''), COALESCE(status, ''), created_at
+		 FROM contact_messages
+		 ORDER BY created_at DESC
+		 LIMIT 5`,
+	)
+	if err != nil {
+		_ = h.sendTelegramMessage(chatID, "Xabarlarni olishda xatolik bo'ldi.")
+		return
+	}
+	defer rows.Close()
+
+	lines := []string{"So'nggi 5 ta xabar:"}
+	for rows.Next() {
+		var id int64
+		var name, company, status string
+		var createdAt time.Time
+		if err := rows.Scan(&id, &name, &company, &status, &createdAt); err == nil {
+			lines = append(lines, fmt.Sprintf("#%d | %s | %s | %s", id, valueOrDash(name), valueOrDash(company), valueOrDash(status)))
+		}
+	}
+	if len(lines) == 1 {
+		lines = append(lines, "Hozircha xabar yo'q.")
+	}
+	_ = h.sendTelegramMessage(chatID, strings.Join(lines, "\n"))
+}
+
+func (h *TelegramHandler) sendContactMessageDetail(chatID, messageID int64) {
+	var (
+		name, company, phone, email, message, sourcePage, status string
+		createdAt                                                time.Time
+	)
+
+	err := h.db.QueryRow(
+		`SELECT COALESCE(name, ''), COALESCE(company, ''), COALESCE(phone, ''), COALESCE(email, ''),
+		        COALESCE(message, ''), COALESCE(source_page, ''), COALESCE(status, ''), created_at
+		 FROM contact_messages
+		 WHERE id=$1`,
+		messageID,
+	).Scan(&name, &company, &phone, &email, &message, &sourcePage, &status, &createdAt)
+	if err == sql.ErrNoRows {
+		_ = h.sendTelegramMessage(chatID, "Xabar topilmadi.")
+		return
+	}
+	if err != nil {
+		_ = h.sendTelegramMessage(chatID, "Xabar detailni olishda xatolik.")
+		return
+	}
+
+	text := fmt.Sprintf(
+		"Xabar #%d\n\n"+
+			"Ism: %s\n"+
+			"Kompaniya: %s\n"+
+			"Telefon: %s\n"+
+			"Email: %s\n"+
+			"Status: %s\n"+
+			"Sahifa: %s\n"+
+			"Sana: %s\n\n"+
+			"Matn:\n%s",
+		messageID,
+		valueOrDash(name),
+		valueOrDash(company),
+		valueOrDash(phone),
+		valueOrDash(email),
+		valueOrDash(status),
+		valueOrDash(sourcePage),
+		createdAt.Format("2006-01-02 15:04"),
+		valueOrDash(message),
+	)
+
+	_ = h.sendTelegramMessage(chatID, text)
 }
 
 func (h *TelegramHandler) handleSessionInput(msg *telegramMessage, text string) {

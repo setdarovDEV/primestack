@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,10 +18,16 @@ type ContactHandler struct {
 	db             *sql.DB
 	telegramToken  string
 	telegramChatID string
+	httpClient     *http.Client
 }
 
 func NewContactHandler(db *sql.DB, telegramToken, telegramChatID string) *ContactHandler {
-	return &ContactHandler{db: db, telegramToken: telegramToken, telegramChatID: telegramChatID}
+	return &ContactHandler{
+		db:             db,
+		telegramToken:  strings.TrimSpace(telegramToken),
+		telegramChatID: strings.TrimSpace(telegramChatID),
+		httpClient:     &http.Client{Timeout: 8 * time.Second},
+	}
 }
 
 // Submit godoc
@@ -49,7 +58,7 @@ func (h *ContactHandler) Submit(c *gin.Context) {
 	}
 
 	// Send Telegram notification (non-blocking)
-	if h.telegramToken != "" && h.telegramChatID != "" {
+	if h.telegramToken != "" {
 		go h.sendTelegramNotification(req)
 	}
 
@@ -58,16 +67,68 @@ func (h *ContactHandler) Submit(c *gin.Context) {
 
 func (h *ContactHandler) sendTelegramNotification(req models.ContactRequest) {
 	text := fmt.Sprintf(
-		"📬 *Yangi murojaat!*\n\n"+
-			"👤 *Ism:* %s\n"+
-			"🏢 *Kompaniya:* %s\n"+
-			"📧 *Email:* %s\n"+
-			"📱 *Telefon:* %s\n"+
-			"📝 *Xabar:* %s\n"+
-			"🌐 *Sahifa:* %s",
+		"📬 Yangi murojaat!\n\n"+
+			"👤 Ism: %s\n"+
+			"🏢 Kompaniya: %s\n"+
+			"📧 Email: %s\n"+
+			"📱 Telefon: %s\n"+
+			"📝 Xabar: %s\n"+
+			"🌐 Sahifa: %s",
 		req.Name, req.Company, req.Email, req.Phone, req.Message, req.SourcePage,
 	)
-	_ = text // In production: call Telegram Bot API
+
+	targets := map[int64]struct{}{}
+	if h.telegramChatID != "" {
+		if chatID, err := strconv.ParseInt(h.telegramChatID, 10, 64); err == nil && chatID != 0 {
+			targets[chatID] = struct{}{}
+		}
+	}
+
+	rows, err := h.db.Query(`SELECT telegram_user_id FROM telegram_admins WHERE is_active=true`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var uid int64
+			if scanErr := rows.Scan(&uid); scanErr == nil && uid != 0 {
+				targets[uid] = struct{}{}
+			}
+		}
+	}
+
+	for chatID := range targets {
+		_ = h.sendTelegramMessage(chatID, text)
+	}
+}
+
+func (h *ContactHandler) sendTelegramMessage(chatID int64, text string) error {
+	if h.telegramToken == "" || chatID == 0 {
+		return nil
+	}
+
+	payload := map[string]interface{}{
+		"chat_id": chatID,
+		"text":    text,
+	}
+	blob, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest(http.MethodPost,
+		fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", h.telegramToken),
+		bytes.NewReader(blob),
+	)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return fmt.Errorf("telegram sendMessage failed with status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func (h *ContactHandler) AdminList(c *gin.Context) {
