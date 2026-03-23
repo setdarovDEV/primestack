@@ -1,13 +1,15 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import toast from 'react-hot-toast'
 import {
   LayoutDashboard, Settings, Users, FolderOpen, Briefcase, FileText,
   MessageSquare, Image, Search, ChevronLeft, ChevronRight, LogOut, Bell,
   Menu, X, Code2, Bot, Shield
 } from 'lucide-react'
+import { adminApiFetch } from '@/lib/api'
 
 const navItems = [
   { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -26,13 +28,47 @@ const navItems = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [newMessageCount, setNewMessageCount] = useState(0)
   const pathname = usePathname()
   const router = useRouter()
+  const lastCountRef = useRef<number>(-1)
 
   const handleLogout = () => {
     document.cookie = 'admin_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
     router.push('/admin')
   }
+
+  useEffect(() => {
+    let disposed = false
+
+    const loadNewCount = async () => {
+      try {
+        const res = await adminApiFetch('/api/v1/admin/dashboard')
+        const json = await res.json()
+        const count = Number(json?.data?.new_messages_count) || 0
+        if (disposed) return
+        setNewMessageCount(count)
+
+        if (lastCountRef.current >= 0 && count > lastCountRef.current) {
+          const delta = count - lastCountRef.current
+          toast.success(`${delta} ta yangi xabar keldi`)
+        }
+        lastCountRef.current = count
+      } catch {
+        if (!disposed) setNewMessageCount(0)
+      }
+    }
+
+    void loadNewCount()
+    const id = window.setInterval(() => {
+      void loadNewCount()
+    }, 15000)
+
+    return () => {
+      disposed = true
+      window.clearInterval(id)
+    }
+  }, [])
 
   const SidebarContent = () => (
     <>
@@ -142,11 +178,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
+            <Link href="/admin/messages" className="relative p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
               style={{ background: 'rgba(15,30,53,0.6)', border: '1px solid rgba(26,45,74,0.6)' }}>
               <Bell size={16} />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary-500" />
-            </button>
+              {newMessageCount > 0 ? (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {newMessageCount > 99 ? '99+' : newMessageCount}
+                </span>
+              ) : (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary-500/60" />
+              )}
+            </Link>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-xs font-bold text-white">A</div>
               <span className="hidden md:block text-sm text-gray-300">Admin</span>

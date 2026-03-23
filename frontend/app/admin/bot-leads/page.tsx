@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { Bot, Search, Trash2 } from 'lucide-react'
+import { Bot, Eye, Search, Trash2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { adminApiFetch } from '@/lib/api'
 
@@ -90,6 +90,7 @@ export default function AdminBotLeadsPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | LeadStatus>('all')
   const [updatingId, setUpdatingId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [selectedLead, setSelectedLead] = useState<BotLead | null>(null)
 
   const loadLeads = async () => {
     setLoading(true)
@@ -217,7 +218,12 @@ export default function AdminBotLeadsPage() {
                 </tr>
               )}
               {!loading && filtered.map((lead) => (
-                <tr key={lead.id} className="hover:bg-white/[0.02] transition-colors" style={{ background: 'rgba(15,30,53,0.6)' }}>
+                <tr
+                  key={lead.id}
+                  className="hover:bg-white/[0.02] transition-colors cursor-pointer"
+                  style={{ background: 'rgba(15,30,53,0.6)' }}
+                  onClick={() => setSelectedLead(lead)}
+                >
                   <td className="px-4 py-3 text-sm text-gray-300">
                     <div className="font-medium text-white">#{lead.id} {lead.full_name || '-'}</div>
                     <div className="text-xs text-gray-500 flex items-center gap-2 mt-1">
@@ -242,6 +248,7 @@ export default function AdminBotLeadsPage() {
                     <select
                       className="form-input text-xs py-1 mt-2"
                       value={lead.status}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => void updateStatus(lead.id, e.target.value as LeadStatus)}
                       disabled={updatingId === lead.id}
                     >
@@ -252,9 +259,22 @@ export default function AdminBotLeadsPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-400">{formatDate(lead.created_at)}</td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-1">
                       <button
-                        onClick={() => void deleteLead(lead.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedLead(lead)
+                        }}
+                        className="p-2 rounded-lg text-gray-500 hover:text-primary-400 hover:bg-primary-400/10 transition-colors"
+                        title="Batafsil"
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void deleteLead(lead.id)
+                        }}
                         disabled={deletingId === lead.id}
                         className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50"
                         title="Leadni o'chirish"
@@ -269,6 +289,85 @@ export default function AdminBotLeadsPage() {
           </table>
         </div>
       </div>
+
+      {selectedLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setSelectedLead(null)} />
+          <div
+            className="relative w-full max-w-2xl rounded-2xl p-6"
+            style={{ background: '#0F1E35', border: '1px solid rgba(26,45,74,0.9)' }}
+          >
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h3 className="font-display font-semibold text-white text-xl">Lead #{selectedLead.id}</h3>
+                <p className="text-sm text-gray-400 mt-1">{formatDate(selectedLead.created_at)}</p>
+              </div>
+              <button
+                onClick={() => setSelectedLead(null)}
+                className="p-2 rounded-lg text-gray-500 hover:text-white"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(26,45,74,0.7)' }}>
+                <div className="text-xs text-gray-500">Mijoz</div>
+                <div className="text-sm text-white mt-1">{selectedLead.full_name || '-'}</div>
+                <div className="text-xs text-gray-400 mt-1">{selectedLead.company || '-'}</div>
+              </div>
+              <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(26,45,74,0.7)' }}>
+                <div className="text-xs text-gray-500">Telegram</div>
+                <div className="text-sm text-white mt-1">ID: {selectedLead.telegram_user_id}</div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {selectedLead.telegram_username ? `@${selectedLead.telegram_username}` : '-'}
+                </div>
+              </div>
+              <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(26,45,74,0.7)' }}>
+                <div className="text-xs text-gray-500">Aloqa</div>
+                <div className="text-sm text-white mt-1">{selectedLead.phone || '-'}</div>
+                <div className="text-xs text-gray-400 mt-1">{selectedLead.email || '-'}</div>
+              </div>
+              <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(26,45,74,0.7)' }}>
+                <div className="text-xs text-gray-500">Loyiha</div>
+                <div className="text-sm text-white mt-1">{selectedLead.project_type || '-'}</div>
+                <div className="text-xs text-gray-400 mt-1">Byudjet: {selectedLead.budget || '-'}</div>
+                <div className="text-xs text-gray-400 mt-1">Muddat: {selectedLead.deadline || '-'}</div>
+              </div>
+            </div>
+
+            <div className="rounded-xl p-4 mb-5" style={{ background: 'rgba(0,87,255,0.07)', border: '1px solid rgba(0,87,255,0.2)' }}>
+              <div className="text-xs text-gray-500 mb-2">Batafsil tavsif</div>
+              <p className="text-sm text-gray-200 whitespace-pre-wrap">{selectedLead.description || '-'}</p>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <span className={statusClass[selectedLead.status]}>{statusLabel[selectedLead.status]}</span>
+              <div className="flex gap-2">
+                <select
+                  className="form-input text-sm py-2"
+                  value={selectedLead.status}
+                  onChange={(e) => {
+                    const next = e.target.value as LeadStatus
+                    void updateStatus(selectedLead.id, next)
+                    setSelectedLead((prev) => (prev ? { ...prev, status: next } : prev))
+                  }}
+                >
+                  {statusOptions.map((s) => (
+                    <option key={s} value={s}>{statusLabel[s]}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setSelectedLead(null)}
+                  className="btn-secondary text-sm py-2 px-4"
+                >
+                  Yopish
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

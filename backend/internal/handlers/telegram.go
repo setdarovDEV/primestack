@@ -541,7 +541,12 @@ func (h *TelegramHandler) saveLeadFromSession(msg *telegramMessage, payload map[
 		company = ""
 	}
 
-	err := h.db.QueryRow(
+	tx, err := h.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+
+	err = tx.QueryRow(
 		`INSERT INTO bot_project_leads (
 			telegram_user_id, telegram_chat_id, telegram_username,
 			full_name, company, phone, email, project_type, budget, deadline, description,
@@ -563,6 +568,36 @@ func (h *TelegramHandler) saveLeadFromSession(msg *telegramMessage, payload map[
 		now,
 	).Scan(&id)
 	if err != nil {
+		_ = tx.Rollback()
+		return 0, err
+	}
+
+	contactMessage := strings.TrimSpace(fmt.Sprintf(
+		"Telegram lead #%d\nLoyiha turi: %s\nByudjet: %s\nMuddat: %s\n\n%s",
+		id,
+		valueOrDash(payload[botStepProjectType]),
+		valueOrDash(payload[botStepBudget]),
+		valueOrDash(payload[botStepDeadline]),
+		valueOrDash(payload[botStepDescription]),
+	))
+	sourcePage := fmt.Sprintf("telegram_bot_lead:%d", id)
+
+	if _, err := tx.Exec(
+		`INSERT INTO contact_messages (name, company, phone, email, message, source_page, status, created_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,'new',$7)`,
+		payload[botStepFullName],
+		company,
+		payload[botStepPhone],
+		payload[botStepEmail],
+		contactMessage,
+		sourcePage,
+		now,
+	); err != nil {
+		_ = tx.Rollback()
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
 
