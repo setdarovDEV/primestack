@@ -148,6 +148,7 @@ GET  /api/v1/blog               → Blog maqolalar
 GET  /api/v1/blog/:slug         → Maqola detail
 GET  /api/v1/vacancies          → Vakansiyalar
 POST /api/v1/contact            → Kontakt formasi
+POST /api/v1/telegram/webhook   → Telegram bot webhook
 GET  /health                    → Tizim holati
 GET  /sitemap.xml               → SEO sitemap
 GET  /robots.txt                → Robots
@@ -166,10 +167,51 @@ CRUD /api/v1/admin/team         → Jamoa boshqaruvi
 CRUD /api/v1/admin/posts        → Blog boshqaruvi
 CRUD /api/v1/admin/vacancies    → Vakansiyalar boshqaruvi
 GET  /api/v1/admin/messages     → Xabarlar
+GET  /api/v1/admin/bot-leads    → Telegram botdan kelgan leadlar
+PATCH /api/v1/admin/bot-leads/:id/status → Bot lead statusi
+GET  /api/v1/admin/telegram-admins → Telegram admin ID lar
+POST /api/v1/admin/telegram-admins → Telegram admin qo'shish (max 3 faol)
 POST /api/v1/admin/media/upload → Media yuklash
 GET  /api/v1/admin/settings     → Sozlamalar
 PUT  /api/v1/admin/settings     → Sozlamalarni saqlash
 ```
+
+---
+
+## 🤖 Telegram Bot (Webhook + Railway)
+
+Bot vazifasi: mijozdan loyiha uchun kerakli ma'lumotlarni bosqichma-bosqich yig'ish va admin panelga lead sifatida tushirish.
+
+### Botda mavjud buyruqlar
+- `/start` — botni boshlash
+- `/loyiha` — yangi loyiha arizasini boshlash
+- `/cancel` — joriy arizani bekor qilish
+- `/id` yoki `/myid` — o'z Telegram ID ni ko'rish
+- `/admin` yoki `/panel` — bot ichidagi admin summary (`telegram_admins` ro'yxatida bo'lsa)
+
+### Kerakli backend env'lar
+```env
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_WEBHOOK_SECRET=...
+TELEGRAM_WEBHOOK_BASE_URL=https://your-backend.up.railway.app
+TELEGRAM_CHAT_ID=... # ixtiyoriy (notify uchun)
+```
+
+`TELEGRAM_WEBHOOK_BASE_URL` berilsa backend start paytida `setWebhook` avtomatik chaqiriladi.
+
+### Qo'lda webhook o'rnatish (script)
+```bash
+export TELEGRAM_BOT_TOKEN=...
+export TELEGRAM_WEBHOOK_SECRET=...
+export TELEGRAM_WEBHOOK_BASE_URL=https://your-backend.up.railway.app
+
+./scripts/telegram-webhook.sh set
+./scripts/telegram-webhook.sh info
+```
+
+### Admin panel
+- `/admin/bot-leads` — botdan kelgan leadlarni ko'rish va status yuritish
+- `/admin/telegram-admins` — bot admin ID larni boshqarish (faol limit: 3 ta)
 
 ---
 
@@ -185,6 +227,9 @@ blog_posts      → Blog maqolalar
 categories      → Blog va portfolio filterlari
 vacancies       → Vakansiyalar
 contact_messages → Kontakt formasi so'rovlari
+bot_project_leads → Telegram botdan kelgan loyiha leadlari
+bot_lead_sessions → Telegram intake jarayoni state'i
+telegram_admins → Telegram admin ID lar (max 3 faol)
 media_files     → Media kutubxona
 site_settings   → Global sozlamalar
 seo_meta        → SEO metadata

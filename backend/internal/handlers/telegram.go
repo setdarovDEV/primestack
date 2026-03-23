@@ -76,6 +76,11 @@ type telegramUser struct {
 	Username  string `json:"username"`
 }
 
+type telegramAPIResponse struct {
+	Ok          bool   `json:"ok"`
+	Description string `json:"description"`
+}
+
 type botLeadSession struct {
 	ChatID      int64
 	UserID      int64
@@ -710,6 +715,53 @@ func (h *TelegramHandler) sendTelegramMessage(chatID int64, text string) error {
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return fmt.Errorf("telegram send message returned status: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (h *TelegramHandler) EnsureWebhook(baseURL string) error {
+	if h.botToken == "" {
+		return nil
+	}
+
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if base == "" {
+		return nil
+	}
+
+	payload := map[string]interface{}{
+		"url": base + "/api/v1/telegram/webhook",
+	}
+	if h.webhookSecret != "" {
+		payload["secret_token"] = h.webhookSecret
+	}
+	blob, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest(http.MethodPost,
+		fmt.Sprintf("https://api.telegram.org/bot%s/setWebhook", h.botToken),
+		bytes.NewReader(blob),
+	)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return fmt.Errorf("telegram setWebhook returned status: %d", resp.StatusCode)
+	}
+
+	var tgResp telegramAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tgResp); err != nil {
+		return nil
+	}
+	if !tgResp.Ok {
+		return fmt.Errorf("telegram setWebhook failed: %s", tgResp.Description)
 	}
 	return nil
 }

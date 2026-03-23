@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -53,6 +54,10 @@ func New(cfg *config.Config) (*Server, error) {
 	contactH := handlers.NewContactHandler(db, cfg.TelegramToken, cfg.TelegramChatID)
 	contentH := handlers.NewContentHandler(db)
 	telegramH := handlers.NewTelegramHandler(db, cfg.TelegramToken, cfg.TelegramChatID, cfg.TelegramWebhookSecret)
+
+	if err := telegramH.EnsureWebhook(cfg.TelegramWebhookBaseURL); err != nil {
+		log.Printf("telegram webhook setup warning: %v", err)
+	}
 
 	// Generic public handler
 	notFound := func(c *gin.Context) {
