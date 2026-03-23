@@ -33,7 +33,7 @@ export default function CTASection() {
                   Loyiha boshlash
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
-                <a href="https://t.me/Primestackuz#" target="_blank" rel="noopener noreferrer" className="btn-secondary text-base px-8 py-3.5">
+                <a href="https://t.me/primestackuz_bot" target="_blank" rel="noopener noreferrer" className="btn-secondary text-base px-8 py-3.5">
                   <MessageSquare size={18} />
                   Telegram orqali
                 </a>

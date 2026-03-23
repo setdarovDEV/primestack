@@ -18,12 +18,12 @@ const values = [
 ]
 
 const milestones = [
-  { year: '2016', title: 'Kompaniya tashkil topdi', desc: 'Toshkentda 5 nafar dasturchi bilan boshlandik.' },
-  { year: '2018', title: 'Birinchi enterprise mijoz', desc: "O'zbekistonning yetakchi bankidan yirik buyurtma." },
-  { year: '2020', title: '50+ loyiha', desc: "Fintech, e-commerce va SaaS bo'yicha ixtisoslashuv." },
-  { year: '2022', title: 'Xalqaro bozorga chiqish', desc: 'UAE va Qozog\'iston bozorlarida loyihalar.' },
-  { year: '2024', title: '40+ mutaxassis', desc: 'Full-stack, mobile va DevOps bo\'yicha kengayish.' },
-  { year: '2026', title: '120+ muvaffaqiyatli loyiha', desc: 'Markaziy Osiyo\'ning #1 IT hamkori bo\'lish yo\'lida.' },
+  { year: '2023', title: 'Kompaniya tashkil topdi', desc: 'Toshkentda 5 nafar dasturchi bilan boshlandik.' },
+  { year: '2023', title: 'Birinchi enterprise mijoz', desc: "O'zbekistonning Bmg Soft kompaniyasidan birinchi buyurtma oldik." },
+  { year: '2024', title: "To'xtalish", desc: "Bu sohani chuqur o'zganishni boshladik." },
+  { year: '2025', title: 'Ikkinchi katta loyiha', desc: 'AcademicNumberOne kompaniyasidan startup loyiha qabul qildik va u 5000$ ga sotdik.' },
+  { year: '2026', title: 'Navbatdagi yirik loyiha boshladik.', desc: 'Kuchli katta tizim qurdik va uni boyitish ustida ishlashda davom etmoqdamiz.' },
+  { year: '2026', title: 'Biz qaytdik', desc: 'Kompaniyani qayta ochdik lekin bu safar kuchli bilim va ishonch bilan..' },
 ]
 
 const stats = [
