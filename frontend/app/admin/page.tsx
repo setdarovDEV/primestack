@@ -76,7 +76,7 @@ export default function AdminLoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@primestack.uz"
+                  placeholder="tmp@gmail.com"
                   className="form-input pl-12"
                   required
                 />
@@ -107,9 +107,6 @@ export default function AdminLoginPage() {
               ) : 'Kirish'}
             </button>
           </form>
-          <p className="text-xs text-center text-gray-600 mt-4">
-            Demo: admin@primestack.uz / admin123
-          </p>
         </div>
       </div>
     </div>

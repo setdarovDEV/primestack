@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Settings, Users, FolderOpen, Briefcase, FileText,
   MessageSquare, Image, Search, ChevronLeft, ChevronRight, LogOut, Bell,
-  Menu, X, Code2
+  Menu, X, Code2, Bot, Shield
 } from 'lucide-react'
 
 const navItems = [
@@ -17,6 +17,8 @@ const navItems = [
   { href: '/admin/blog', icon: FileText, label: 'Blog' },
   { href: '/admin/vacancies', icon: Briefcase, label: 'Vakansiyalar' },
   { href: '/admin/messages', icon: MessageSquare, label: 'Xabarlar' },
+  { href: '/admin/bot-leads', icon: Bot, label: 'Bot leadlar' },
+  { href: '/admin/telegram-admins', icon: Shield, label: 'Bot adminlar' },
   { href: '/admin/media', icon: Image, label: 'Media' },
   { href: '/admin/settings', icon: Settings, label: 'Sozlamalar' },
 ]

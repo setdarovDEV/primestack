@@ -295,6 +295,56 @@ CREATE TABLE IF NOT EXISTS contact_messages (
 CREATE INDEX IF NOT EXISTS idx_messages_status ON contact_messages(status);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON contact_messages(created_at DESC);
 
+-- ─── Telegram Bot Leads ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS bot_project_leads (
+    id                BIGSERIAL PRIMARY KEY,
+    telegram_user_id  BIGINT NOT NULL,
+    telegram_chat_id  BIGINT NOT NULL,
+    telegram_username VARCHAR(100),
+    full_name         VARCHAR(255) NOT NULL,
+    company           VARCHAR(255),
+    phone             VARCHAR(50),
+    email             VARCHAR(255),
+    project_type      VARCHAR(100),
+    budget            VARCHAR(100),
+    deadline          VARCHAR(100),
+    description       TEXT NOT NULL,
+    status            VARCHAR(20) DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'qualified', 'won', 'lost', 'archived')),
+    source            VARCHAR(30) DEFAULT 'telegram_bot',
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_project_leads_status ON bot_project_leads(status);
+CREATE INDEX IF NOT EXISTS idx_bot_project_leads_created ON bot_project_leads(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bot_project_leads_user ON bot_project_leads(telegram_user_id);
+
+-- ─── Telegram Bot Sessions (multi-step intake) ──────────────
+CREATE TABLE IF NOT EXISTS bot_lead_sessions (
+    chat_id       BIGINT PRIMARY KEY,
+    user_id       BIGINT NOT NULL,
+    username      VARCHAR(100),
+    current_step  VARCHAR(50) NOT NULL,
+    payload       JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_lead_sessions_updated ON bot_lead_sessions(updated_at DESC);
+
+-- ─── Telegram Admins (max 3 active managed by API) ──────────
+CREATE TABLE IF NOT EXISTS telegram_admins (
+    id               BIGSERIAL PRIMARY KEY,
+    telegram_user_id BIGINT NOT NULL UNIQUE,
+    display_name     VARCHAR(255),
+    username         VARCHAR(100),
+    is_active        BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at       TIMESTAMPTZ DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_telegram_admins_active ON telegram_admins(is_active);
+
 -- ─── Media Files ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS media_files (
     id          BIGSERIAL PRIMARY KEY,

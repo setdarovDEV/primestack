@@ -52,6 +52,7 @@ func New(cfg *config.Config) (*Server, error) {
 	servicesH := handlers.NewServicesHandler(db)
 	contactH := handlers.NewContactHandler(db, cfg.TelegramToken, cfg.TelegramChatID)
 	contentH := handlers.NewContentHandler(db)
+	telegramH := handlers.NewTelegramHandler(db, cfg.TelegramToken, cfg.TelegramChatID, cfg.TelegramWebhookSecret)
 
 	// Generic public handler
 	notFound := func(c *gin.Context) {
@@ -127,6 +128,8 @@ func New(cfg *config.Config) (*Server, error) {
 	public.GET("/vacancies", contentH.PublicVacancies)
 
 	public.POST("/contact", contactH.Submit)
+	public.POST("/telegram/webhook", telegramH.Webhook)
+	public.POST("/telegram/webhook/:secret", telegramH.Webhook)
 
 	public.GET("/pages/:slug", func(c *gin.Context) {
 		c.JSON(http.StatusOK, models.Success(gin.H{
@@ -258,6 +261,16 @@ func New(cfg *config.Config) (*Server, error) {
 	admin.GET("/messages", contactH.AdminList)
 	admin.PATCH("/messages/:id/status", contactH.UpdateStatus)
 	admin.DELETE("/messages/:id", contactH.Delete)
+
+	// Admin telegram bot leads
+	admin.GET("/bot-leads", middleware.RoleMiddleware("super_admin", "editor"), telegramH.AdminListLeads)
+	admin.PATCH("/bot-leads/:id/status", middleware.RoleMiddleware("super_admin", "editor"), telegramH.AdminUpdateLeadStatus)
+	admin.DELETE("/bot-leads/:id", middleware.RoleMiddleware("super_admin"), telegramH.AdminDeleteLead)
+
+	// Admin telegram bot users (max 3 active)
+	admin.GET("/telegram-admins", middleware.RoleMiddleware("super_admin"), telegramH.AdminListTelegramAdmins)
+	admin.POST("/telegram-admins", middleware.RoleMiddleware("super_admin"), telegramH.AdminCreateTelegramAdmin)
+	admin.DELETE("/telegram-admins/:id", middleware.RoleMiddleware("super_admin"), telegramH.AdminDeleteTelegramAdmin)
 
 	// Admin media upload
 	admin.POST("/media/upload", func(c *gin.Context) {

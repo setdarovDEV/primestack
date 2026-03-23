@@ -132,6 +132,35 @@ type ContactMessage struct {
 	CreatedAt  time.Time `json:"created_at"`
 }
 
+type BotProjectLead struct {
+	ID               int64     `json:"id"`
+	TelegramUserID   int64     `json:"telegram_user_id"`
+	TelegramChatID   int64     `json:"telegram_chat_id"`
+	TelegramUsername string    `json:"telegram_username"`
+	FullName         string    `json:"full_name"`
+	Company          string    `json:"company"`
+	Phone            string    `json:"phone"`
+	Email            string    `json:"email"`
+	ProjectType      string    `json:"project_type"`
+	Budget           string    `json:"budget"`
+	Deadline         string    `json:"deadline"`
+	Description      string    `json:"description"`
+	Status           string    `json:"status"`
+	Source           string    `json:"source"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type TelegramAdmin struct {
+	ID             int64     `json:"id"`
+	TelegramUserID int64     `json:"telegram_user_id"`
+	DisplayName    string    `json:"display_name"`
+	Username       string    `json:"username"`
+	IsActive       bool      `json:"is_active"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
 type MediaFile struct {
 	ID         int64     `json:"id"`
 	FileName   string    `json:"file_name"`

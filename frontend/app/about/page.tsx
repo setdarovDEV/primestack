@@ -27,9 +27,9 @@ const milestones = [
 ]
 
 const stats = [
-  { icon: Users, label: 'Mutaxassislar', value: '40+' },
-  { icon: Award, label: 'Muvaffaqiyatli loyihalar', value: '120+' },
-  { icon: Globe, label: 'Mamlakatlar', value: '5+' },
+  { icon: Users, label: 'Mutaxassislar', value: '10+' },
+  { icon: Award, label: 'Muvaffaqiyatli loyihalar', value: '5+' },
+  { icon: Globe, label: 'Mamlakatlar', value: '1' },
   { icon: TrendingUp, label: 'Yillik o\'sish', value: '85%' },
 ]
 
