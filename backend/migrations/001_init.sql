@@ -81,14 +81,116 @@ CREATE INDEX IF NOT EXISTS idx_services_slug ON services(slug);
 CREATE INDEX IF NOT EXISTS idx_services_active ON services(is_active);
 
 -- Seed services
-INSERT INTO services (title, slug, short_description, "order", is_active) VALUES
-('Web ilovalar', 'web-apps', 'Next.js, React va zamonaviy texnologiyalar bilan tezkor web platformalar.', 1, true),
-('Mobil ilovalar', 'mobile-apps', 'Flutter va React Native bilan iOS/Android uchun native-quality ilovalar.', 2, true),
-('Cloud yechimlar', 'cloud', 'AWS, GCP va DigitalOcean''da skalalanadigan infratuzilma xizmatlari.', 3, true),
-('UI/UX Dizayn', 'design', 'Foydalanuvchi tajribasini birinchi o''ringa qo''yuvchi estetik dizayn.', 4, true),
-('Backend & API', 'backend', 'Go, Python va Node.js bilan kuchli, xavfsiz backend tizimlar.', 5, true),
-('Xavfsizlik audit', 'security', 'Ilovangiz xavfsizligini tekshirish va himoya strategiyalari.', 6, true)
-ON CONFLICT DO NOTHING;
+UPDATE services
+SET slug = 'web-development'
+WHERE slug = 'web-apps'
+  AND NOT EXISTS (SELECT 1 FROM services s2 WHERE s2.slug = 'web-development');
+
+UPDATE services
+SET slug = 'cloud-devops'
+WHERE slug = 'cloud'
+  AND NOT EXISTS (SELECT 1 FROM services s2 WHERE s2.slug = 'cloud-devops');
+
+UPDATE services
+SET slug = 'ui-ux-design'
+WHERE slug = 'design'
+  AND NOT EXISTS (SELECT 1 FROM services s2 WHERE s2.slug = 'ui-ux-design');
+
+UPDATE services
+SET slug = 'backend-development'
+WHERE slug = 'backend'
+  AND NOT EXISTS (SELECT 1 FROM services s2 WHERE s2.slug = 'backend-development');
+
+UPDATE services
+SET slug = 'cybersecurity'
+WHERE slug = 'security'
+  AND NOT EXISTS (SELECT 1 FROM services s2 WHERE s2.slug = 'cybersecurity');
+
+INSERT INTO services (title, slug, short_description, full_content, icon, "order", is_active) VALUES
+(
+  'Web dasturlash',
+  'web-development',
+  'Biz zamonaviy, tezkor va mobilga mos web saytlar hamda web ilovalar yaratamiz.',
+  '{"features":["SSR/CSR Next.js","REST API / GraphQL","Admin panel yaratish","Responsive dizayn","SEO optimization"],"use_cases":["Korporativ saytlar","E-commerce platformalar","Startup loyihalar","Landing page"]}',
+  'code',
+  1,
+  true
+),
+(
+  'Mobil ilovalar',
+  'mobile-apps',
+  'Android va iOS uchun tezkor va foydalanuvchi qulay mobil ilovalar ishlab chiqamiz.',
+  '{"features":["Flutter / React Native","Push notification","API integratsiya","Offline ishlash","UI/UX optimizatsiya"],"use_cases":["Startup ilovalar","Online xizmatlar","Delivery tizimlar","Fintech ilovalar"]}',
+  'smartphone',
+  2,
+  true
+),
+(
+  'Cloud va DevOps',
+  'cloud-devops',
+  'Server, deploy va infratuzilmani avtomatlashtiramiz va optimizatsiya qilamiz.',
+  '{"features":["AWS / DigitalOcean","CI/CD pipeline","Docker / Kubernetes","Server monitoring","Auto scaling"],"use_cases":["Yuqori yuklama tizimlar","Startup backend","SaaS platformalar"]}',
+  'cloud',
+  3,
+  true
+),
+(
+  'Backend development',
+  'backend-development',
+  'Kuchli, xavfsiz va tez ishlaydigan server tomon logikalarni ishlab chiqamiz.',
+  '{"features":["Node.js / Laravel / Django","REST API","Authentication & Security","Database optimization","Microservices"],"use_cases":["Mobil ilovalar backend","Web platformalar","CRM / ERP tizimlar"]}',
+  'database',
+  4,
+  true
+),
+(
+  'UI/UX dizayn',
+  'ui-ux-design',
+  'Foydalanuvchi tajribasiga asoslangan zamonaviy va chiroyli dizaynlar yaratamiz.',
+  '{"features":["Figma / Adobe XD","Wireframe & Prototype","UX research","Design system","Mobile-first dizayn"],"use_cases":["Mobil ilovalar","Web saytlar","Dashboardlar"]}',
+  'palette',
+  5,
+  true
+),
+(
+  'Kiberxavfsizlik',
+  'cybersecurity',
+  'Tizimlaringizni xavfsizligini ta''minlaymiz va zaifliklarni aniqlaymiz.',
+  '{"features":["Penetration testing","Security audit","Data protection","Firewall sozlash","Monitoring"],"use_cases":["Bank tizimlari","Startup platformalar","Korporativ tizimlar"]}',
+  'shield',
+  6,
+  true
+),
+(
+  'SEO va marketing',
+  'seo-marketing',
+  'Saytingizni Google''da yuqoriga olib chiqamiz va trafikni oshiramiz.',
+  '{"features":["SEO audit","Keyword research","On-page SEO","Analytics","Content strategy"],"use_cases":["Biznes saytlar","Online do''konlar","Blog platformalar"]}',
+  'chart',
+  7,
+  true
+),
+(
+  'AI va chatbotlar',
+  'ai-chatbots',
+  'Sun''iy intellekt asosida chatbot va avtomatlashtirilgan tizimlar yaratamiz.',
+  '{"features":["Telegram botlar","AI chatbot (GPT)","Automation","CRM integratsiya"],"use_cases":["Customer support","Sales automation","Lead generation"]}',
+  'cpu',
+  8,
+  true
+)
+ON CONFLICT (slug) DO UPDATE SET
+  title = EXCLUDED.title,
+  short_description = EXCLUDED.short_description,
+  full_content = EXCLUDED.full_content,
+  icon = EXCLUDED.icon,
+  "order" = EXCLUDED."order",
+  is_active = EXCLUDED.is_active,
+  updated_at = NOW();
+
+UPDATE services
+SET is_active = false, updated_at = NOW()
+WHERE slug IN ('web-apps', 'cloud', 'design', 'backend', 'security');
 
 -- ─── Projects ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS projects (

@@ -16,7 +16,7 @@ const columns: Column[] = [
 const fields: Field[] = [
   { key: 'title', label: 'Nomi', type: 'text', required: true, placeholder: 'Web ilovalar' },
   { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'web-apps' },
-  { key: 'icon', label: 'Ikonka kodi', type: 'text', placeholder: 'code | cloud | seo | marketing | ai | chatbot | automation | analytics | shield' },
+  { key: 'icon', label: 'Ikonka kodi', type: 'text', placeholder: 'code | smartphone | cloud | database | palette | shield | chart | cpu' },
   { key: 'short_description', label: 'Qisqa tavsif', type: 'textarea', placeholder: 'Xizmat haqida qisqacha...' },
   { key: 'features_text', label: 'Imkoniyatlar (har qator alohida)', type: 'textarea', placeholder: 'SSR/ISR Next.js\nREST/GraphQL API\nSEO optimization' },
   { key: 'use_cases_text', label: "Qo'llanilishi (har qator alohida)", type: 'textarea', placeholder: "Korporativ saytlar\nE-commerce platformalar\nSaaS dashboardlar" },

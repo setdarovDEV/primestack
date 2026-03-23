@@ -73,14 +73,15 @@ func getEnvInt(key string, fallback int) int {
 }
 
 func getAllowedOrigins() []string {
-	if raw := strings.TrimSpace(os.Getenv("ALLOWED_ORIGINS")); raw != "" {
-		return splitCSV(raw)
-	}
-
 	defaults := []string{
 		getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
 		"http://localhost",
 		"https://primestack.uz",
+		"https://www.primestack.uz",
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("ALLOWED_ORIGINS")); raw != "" {
+		return uniqueNonEmpty(append(splitCSV(raw), defaults...))
 	}
 
 	return uniqueNonEmpty(defaults)

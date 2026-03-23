@@ -27,9 +27,11 @@ const ICON_MAP: Record<string, any> = {
   seo: Search,
   search: Search,
   marketing: Megaphone,
+  chart: LineChart,
   ai: Bot,
   bot: Bot,
   chatbot: Bot,
+  cpu: Cpu,
   automation: Cpu,
   analytics: LineChart,
 }
