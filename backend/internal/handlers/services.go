@@ -23,7 +23,12 @@ func NewServicesHandler(db *sql.DB) *ServicesHandler {
 
 func (h *ServicesHandler) List(c *gin.Context) {
 	rows, err := h.db.Query(
-		`SELECT id, title, slug, short_description, full_content, icon, cover_image, "order", is_active, created_at, updated_at
+		`SELECT id, title, slug,
+		        COALESCE(short_description, ''),
+		        COALESCE(full_content, ''),
+		        COALESCE(icon, ''),
+		        COALESCE(cover_image, ''),
+		        "order", is_active, created_at, updated_at
 		 FROM services WHERE is_active=true ORDER BY "order" ASC`,
 	)
 	if err != nil {
@@ -49,7 +54,12 @@ func (h *ServicesHandler) GetBySlug(c *gin.Context) {
 	slug := c.Param("slug")
 	var s models.Service
 	err := h.db.QueryRow(
-		`SELECT id, title, slug, short_description, full_content, icon, cover_image, "order", is_active, created_at, updated_at
+		`SELECT id, title, slug,
+		        COALESCE(short_description, ''),
+		        COALESCE(full_content, ''),
+		        COALESCE(icon, ''),
+		        COALESCE(cover_image, ''),
+		        "order", is_active, created_at, updated_at
 		 FROM services WHERE slug=$1 AND is_active=true`, slug,
 	).Scan(&s.ID, &s.Title, &s.Slug, &s.ShortDescription, &s.FullContent, &s.Icon, &s.CoverImage, &s.Order, &s.IsActive, &s.CreatedAt, &s.UpdatedAt)
 	if err == sql.ErrNoRows {
@@ -65,7 +75,12 @@ func (h *ServicesHandler) GetBySlug(c *gin.Context) {
 
 func (h *ServicesHandler) AdminList(c *gin.Context) {
 	rows, err := h.db.Query(
-		`SELECT id, title, slug, short_description, full_content, icon, cover_image, "order", is_active, created_at, updated_at
+		`SELECT id, title, slug,
+		        COALESCE(short_description, ''),
+		        COALESCE(full_content, ''),
+		        COALESCE(icon, ''),
+		        COALESCE(cover_image, ''),
+		        "order", is_active, created_at, updated_at
 		 FROM services ORDER BY "order" ASC`,
 	)
 	if err != nil {
