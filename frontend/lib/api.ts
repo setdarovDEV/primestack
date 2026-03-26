@@ -1,6 +1,7 @@
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/$/, '')
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+let authRedirectInProgress = false
 
 function getCookieValue(name: string): string {
   if (typeof document === 'undefined') return ''
@@ -18,6 +19,31 @@ export async function apiFetch(path: string, init?: RequestInit) {
     ...init,
   })
   return res
+}
+
+async function forceAdminReauth(): Promise<void> {
+  if (typeof window === 'undefined' || authRedirectInProgress) return
+  authRedirectInProgress = true
+
+  try {
+    await fetch(`${API_BASE}/api/v1/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch {
+    // no-op
+  }
+
+  if (!window.location.pathname.startsWith('/admin/login')) {
+    window.location.assign('/admin/login?reauth=1')
+    return
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('reauth') !== '1') {
+    params.set('reauth', '1')
+    window.location.replace(`/admin/login?${params.toString()}`)
+  }
 }
 
 export async function adminApiFetch(path: string, init?: RequestInit) {
@@ -38,8 +64,9 @@ export async function adminApiFetch(path: string, init?: RequestInit) {
     credentials: 'include',
   })
 
-  if (res.status === 401 && typeof window !== 'undefined') {
-    window.location.href = '/admin/login'
+  if (res.status === 401) {
+    void forceAdminReauth()
+    throw new Error('Sessiya tugagan. Qaytadan kiring')
   }
 
   if (!res.ok) {
