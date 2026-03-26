@@ -1,4 +1,16 @@
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/$/, '')
+const ENV_API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/$/, '')
+
+function resolveApiBase(): string {
+  if (ENV_API_BASE) return ENV_API_BASE
+  if (typeof window !== 'undefined') {
+    const { hostname, origin } = window.location
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8080'
+    }
+    return origin
+  }
+  return 'http://localhost:8080'
+}
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 let authRedirectInProgress = false
@@ -14,7 +26,7 @@ function getCookieValue(name: string): string {
 }
 
 export async function apiFetch(path: string, init?: RequestInit) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${resolveApiBase()}${path}`, {
     credentials: 'include',
     ...init,
   })
@@ -26,7 +38,7 @@ async function forceAdminReauth(): Promise<void> {
   authRedirectInProgress = true
 
   try {
-    await fetch(`${API_BASE}/api/v1/auth/logout`, {
+    await fetch(`${resolveApiBase()}/api/v1/auth/logout`, {
       method: 'POST',
       credentials: 'include',
     })
@@ -57,7 +69,7 @@ export async function adminApiFetch(path: string, init?: RequestInit) {
     if (csrfToken) headers.set('X-CSRF-Token', csrfToken)
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${resolveApiBase()}${path}`, {
     ...init,
     method,
     headers,
