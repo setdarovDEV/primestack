@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -24,19 +25,29 @@ type Server struct {
 func New(cfg *config.Config) (*Server, error) {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
+		if len(strings.TrimSpace(cfg.JWTSecret)) < 32 {
+			return nil, fmt.Errorf("JWT_SECRET must be at least 32 characters in production")
+		}
+		if cfg.AllowEnvAdminFallback {
+			return nil, fmt.Errorf("ALLOW_ENV_ADMIN_FALLBACK must be false in production")
+		}
 	}
 
 	r := gin.New()
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("set trusted proxies: %w", err)
+	}
 	r.Use(gin.Recovery())
 	r.Use(middleware.Logger())
 	r.Use(middleware.SecurityHeaders())
+	r.Use(middleware.BodySizeLimitMiddleware(cfg.MaxUploadSize))
 	r.Use(middleware.RateLimitMiddleware())
 
 	// CORS
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.AllowOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-CSRF-Token", "X-Auth-Mode"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -49,7 +60,22 @@ func New(cfg *config.Config) (*Server, error) {
 	}
 
 	// Handlers
-	authH := handlers.NewAuthHandler(db, cfg.JWTSecret, cfg.JWTExpiry, cfg.AdminEmail, cfg.AdminPassword)
+	authH := handlers.NewAuthHandler(db, cfg.JWTSecret, cfg.JWTExpiry, cfg.AdminEmail, cfg.AdminPassword, handlers.AuthOptions{
+		AllowEnvAdminFallback: cfg.AllowEnvAdminFallback,
+		AuthCookieName:        cfg.AuthCookieName,
+		CSRFCookieName:        cfg.AuthCSRFCookieName,
+		CookieDomain:          cfg.AuthCookieDomain,
+		CookieSecure:          cfg.AuthCookieSecure,
+		LoginMaxAttempts:      cfg.LoginMaxAttempts,
+		LoginLockDuration:     time.Duration(cfg.LoginLockMinutes) * time.Minute,
+		SMTPHost:              cfg.SMTPHost,
+		SMTPPort:              cfg.SMTPPort,
+		SMTPUser:              cfg.SMTPUser,
+		SMTPPass:              cfg.SMTPPass,
+		TwoFAEmail:            cfg.AdminTwoFAEmail,
+		TwoFACodeTTL:          time.Duration(cfg.TwoFACodeExpiryMinutes) * time.Minute,
+		TwoFAMaxAttempts:      cfg.TwoFAMaxAttempts,
+	})
 	servicesH := handlers.NewServicesHandler(db)
 	contactH := handlers.NewContactHandler(db, cfg.TelegramToken, cfg.TelegramChatID)
 	contentH := handlers.NewContentHandler(db)
@@ -84,6 +110,7 @@ func New(cfg *config.Config) (*Server, error) {
 	// Auth
 	auth := v1.Group("/auth")
 	auth.POST("/login", authH.Login)
+	auth.POST("/verify-2fa", authH.Verify2FA)
 	auth.POST("/logout", authH.Logout)
 
 	// Public
@@ -146,7 +173,8 @@ func New(cfg *config.Config) (*Server, error) {
 
 	// ─── Admin ────────────────────────────────────────────────
 	admin := v1.Group("/admin")
-	admin.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+	admin.Use(middleware.AuthMiddleware(cfg.JWTSecret, cfg.AuthCookieName))
+	admin.Use(middleware.CSRFMiddleware(cfg.AuthCSRFCookieName))
 
 	admin.GET("/me", authH.Me)
 

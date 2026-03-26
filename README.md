@@ -113,7 +113,8 @@ Email:    admin@primestack.uz
 Password: admin123
 ```
 
-> ⚠️ Production'da parolni o'zgartiring!
+> ⚠️ Bu login faqat boshlang'ich local seed uchun. Frontend demo bypass olib tashlangan.
+> ⚠️ Production'da default parolni darhol almashtiring va `ALLOW_ENV_ADMIN_FALLBACK=false` qoldiring.
 
 ### Admin panel imkoniyatlari
 
@@ -154,7 +155,7 @@ GET  /sitemap.xml               → SEO sitemap
 GET  /robots.txt                → Robots
 ```
 
-### Admin Endpoints (JWT kerak)
+### Admin Endpoints (session cookie yoki Bearer JWT kerak)
 
 ```
 POST /api/v1/auth/login         → Kirish
@@ -175,6 +176,8 @@ POST /api/v1/admin/media/upload → Media yuklash
 GET  /api/v1/admin/settings     → Sozlamalar
 PUT  /api/v1/admin/settings     → Sozlamalarni saqlash
 ```
+
+`Cookie` sessiya rejimida `POST/PUT/PATCH/DELETE` so'rovlarda `X-CSRF-Token` header yuborilishi kerak (`admin_csrf` cookie qiymati).
 
 ---
 

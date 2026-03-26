@@ -81,14 +81,15 @@ export default function CareersPageContent() {
             {perks.map((p, i) => {
               const Icon = p.icon
               return (
-                <AnimatedSection key={p.title} delay={i * 0.08}>
-                  <div className="p-5 rounded-2xl text-center" style={{ background: 'rgba(15,30,53,0.6)', border: '1px solid rgba(26,45,74,0.8)' }}>
+                <AnimatedSection key={p.title} delay={i * 0.08} className="h-full">
+                  <div className="p-5 rounded-2xl text-center h-full min-h-[142px] flex flex-col justify-center"
+                    style={{ background: 'rgba(15,30,53,0.6)', border: '1px solid rgba(26,45,74,0.8)' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
                       style={{ background: 'rgba(0,87,255,0.12)', border: '1px solid rgba(0,87,255,0.2)' }}>
                       <Icon size={18} className="text-primary-400" />
                     </div>
                     <h4 className="font-display font-semibold text-white text-sm mb-1">{p.title}</h4>
-                    <p className="text-xs text-gray-500">{p.desc}</p>
+                    <p className="text-xs text-gray-500 line-clamp-2">{p.desc}</p>
                   </div>
                 </AnimatedSection>
               )

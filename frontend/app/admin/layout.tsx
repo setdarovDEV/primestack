@@ -6,10 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
   LayoutDashboard, Settings, Users, FolderOpen, Briefcase, FileText,
-  MessageSquare, Image, Search, ChevronLeft, ChevronRight, LogOut, Bell,
-  Menu, X, Code2, Bot, Shield
+  MessageSquare, Image, ChevronLeft, ChevronRight, LogOut, Bell, X,
+  Menu, Code2, Bot, Shield
 } from 'lucide-react'
-import { adminApiFetch } from '@/lib/api'
+import { adminApiFetch, apiFetch } from '@/lib/api'
 
 const navItems = [
   { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -25,50 +25,171 @@ const navItems = [
   { href: '/admin/settings', icon: Settings, label: 'Sozlamalar' },
 ]
 
+type NewMessageItem = {
+  id: number
+  name: string
+  company: string
+  message: string
+  source_page: string
+  status: string
+  created_at: string
+}
+
+function toSafeString(v: unknown): string {
+  return typeof v === 'string' ? v : ''
+}
+
+function toSafeNumber(v: unknown): number {
+  return Number(v) || 0
+}
+
+function formatRelative(value: string): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  const diffMs = Date.now() - d.getTime()
+  if (diffMs < 60 * 1000) return 'Hozirgina'
+  const mins = Math.floor(diffMs / (60 * 1000))
+  if (mins < 60) return `${mins} min oldin`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} soat oldin`
+  if (hours < 48) return 'Kecha'
+  return d.toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [newMessageCount, setNewMessageCount] = useState(0)
+  const [newMessages, setNewMessages] = useState<NewMessageItem[]>([])
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [loadingNotifications, setLoadingNotifications] = useState(false)
+  const [markingReadId, setMarkingReadId] = useState<number | null>(null)
   const pathname = usePathname()
   const router = useRouter()
   const lastCountRef = useRef<number>(-1)
+  const isAuthPage = pathname === '/admin' || pathname === '/admin/login'
 
-  const handleLogout = () => {
-    document.cookie = 'admin_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    router.push('/admin')
+  const handleLogout = async () => {
+    try {
+      await apiFetch('/api/v1/auth/logout', { method: 'POST' })
+    } catch {
+      // no-op
+    }
+    router.push('/admin/login')
+    router.refresh()
   }
 
   useEffect(() => {
+    if (isAuthPage) return
+
     let disposed = false
 
-    const loadNewCount = async () => {
-      try {
-        const res = await adminApiFetch('/api/v1/admin/dashboard')
-        const json = await res.json()
-        const count = Number(json?.data?.new_messages_count) || 0
-        if (disposed) return
-        setNewMessageCount(count)
+    const loadNewMessages = async (silent: boolean) => {
+      if (!silent && !disposed) {
+        setLoadingNotifications(true)
+      }
 
-        if (lastCountRef.current >= 0 && count > lastCountRef.current) {
-          const delta = count - lastCountRef.current
+      try {
+        const res = await adminApiFetch('/api/v1/admin/messages?status=new&per_page=20')
+        const json = await res.json()
+        const rowsRaw = Array.isArray(json?.data?.data) ? json.data.data : []
+        const rows: NewMessageItem[] = rowsRaw.map((item: any) => ({
+          id: toSafeNumber(item?.id),
+          name: toSafeString(item?.name) || 'No name',
+          company: toSafeString(item?.company),
+          message: toSafeString(item?.message),
+          source_page: toSafeString(item?.source_page),
+          status: toSafeString(item?.status),
+          created_at: toSafeString(item?.created_at),
+        }))
+        if (disposed) return
+
+        setNewMessages(rows)
+        setNewMessageCount(rows.length)
+
+        if (lastCountRef.current >= 0 && rows.length > lastCountRef.current) {
+          const delta = rows.length - lastCountRef.current
           toast.success(`${delta} ta yangi xabar keldi`)
         }
-        lastCountRef.current = count
+        lastCountRef.current = rows.length
       } catch {
-        if (!disposed) setNewMessageCount(0)
+        if (disposed) return
+      } finally {
+        if (!silent && !disposed) {
+          setLoadingNotifications(false)
+        }
       }
     }
 
-    void loadNewCount()
-    const id = window.setInterval(() => {
-      void loadNewCount()
+    void loadNewMessages(true)
+    const intervalId = window.setInterval(() => {
+      void loadNewMessages(true)
     }, 15000)
 
     return () => {
       disposed = true
-      window.clearInterval(id)
+      window.clearInterval(intervalId)
     }
-  }, [])
+  }, [isAuthPage])
+
+  useEffect(() => {
+    setNotificationsOpen(false)
+  }, [pathname])
+
+  const refreshNotifications = async () => {
+    setLoadingNotifications(true)
+    try {
+      const res = await adminApiFetch('/api/v1/admin/messages?status=new&per_page=20')
+      const json = await res.json()
+      const rowsRaw = Array.isArray(json?.data?.data) ? json.data.data : []
+      const rows: NewMessageItem[] = rowsRaw.map((item: any) => ({
+        id: toSafeNumber(item?.id),
+        name: toSafeString(item?.name) || 'No name',
+        company: toSafeString(item?.company),
+        message: toSafeString(item?.message),
+        source_page: toSafeString(item?.source_page),
+        status: toSafeString(item?.status),
+        created_at: toSafeString(item?.created_at),
+      }))
+      setNewMessages(rows)
+      setNewMessageCount(rows.length)
+      lastCountRef.current = rows.length
+    } catch {
+      toast.error('Yangi xabarlarni yuklab bo‘lmadi')
+    } finally {
+      setLoadingNotifications(false)
+    }
+  }
+
+  const handleNotificationsClick = async () => {
+    const nextOpen = !notificationsOpen
+    setNotificationsOpen(nextOpen)
+    if (nextOpen) {
+      await refreshNotifications()
+    }
+  }
+
+  const markAsRead = async (id: number) => {
+    setMarkingReadId(id)
+    try {
+      await adminApiFetch(`/api/v1/admin/messages/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'read' }),
+      })
+      setNewMessages((prev) => prev.filter((m) => m.id !== id))
+      setNewMessageCount((prev) => Math.max(prev - 1, 0))
+      toast.success("Xabar o'qilganlarga o'tdi")
+    } catch {
+      toast.error("Xabar statusini yangilab bo'lmadi")
+    } finally {
+      setMarkingReadId(null)
+    }
+  }
+
+  if (isAuthPage) {
+    return <>{children}</>
+  }
 
   const SidebarContent = () => (
     <>
@@ -169,16 +290,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <button className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-white" onClick={() => setMobileOpen(true)}>
               <Menu size={20} />
             </button>
-            {/* Search */}
-            <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg"
-              style={{ background: 'rgba(15,30,53,0.8)', border: '1px solid rgba(26,45,74,0.8)', minWidth: 200 }}>
-              <Search size={14} className="text-gray-500" />
-              <span className="text-sm text-gray-500">Qidirish...</span>
-              <span className="ml-auto text-xs text-gray-600 font-mono">⌘K</span>
-            </div>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/admin/messages" className="relative p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
+            <button
+              type="button"
+              onClick={() => { void handleNotificationsClick() }}
+              className="relative p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
               style={{ background: 'rgba(15,30,53,0.6)', border: '1px solid rgba(26,45,74,0.6)' }}>
               <Bell size={16} />
               {newMessageCount > 0 ? (
@@ -188,7 +305,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               ) : (
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary-500/60" />
               )}
-            </Link>
+            </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-xs font-bold text-white">A</div>
               <span className="hidden md:block text-sm text-gray-300">Admin</span>
@@ -201,6 +318,84 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {children}
         </main>
       </div>
+
+      <AnimatePresence>
+        {notificationsOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/45 z-40"
+              onClick={() => setNotificationsOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -12, x: 12 }}
+              animate={{ opacity: 1, y: 0, x: 0 }}
+              exit={{ opacity: 0, y: -8, x: 8 }}
+              transition={{ duration: 0.2 }}
+              className="fixed top-20 right-6 z-50 w-[360px] max-w-[calc(100vw-24px)] rounded-2xl overflow-hidden"
+              style={{ background: 'rgba(8,14,31,0.98)', border: '1px solid rgba(26,45,74,0.9)' }}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-navy-border">
+                <div>
+                  <p className="text-sm font-semibold text-white">Yangi xabarlar</p>
+                  <p className="text-xs text-gray-500">{newMessageCount} ta yangi</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNotificationsOpen(false)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] overflow-y-auto">
+                {loadingNotifications && (
+                  <div className="px-4 py-6 text-sm text-gray-500 text-center">Yuklanmoqda...</div>
+                )}
+
+                {!loadingNotifications && newMessages.length === 0 && (
+                  <div className="px-4 py-8 text-sm text-gray-500 text-center">
+                    Hozircha yangi xabar yo&apos;q
+                  </div>
+                )}
+
+                {!loadingNotifications && newMessages.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={markingReadId === item.id}
+                    onClick={() => { void markAsRead(item.id) }}
+                    className="w-full text-left px-4 py-3 border-b border-navy-border hover:bg-white/[0.03] transition-colors disabled:opacity-60"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-white truncate">{item.name}</p>
+                      <span className="text-[11px] text-gray-500 flex-shrink-0">{formatRelative(item.created_at)}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">{item.company || 'Kompaniya ko‘rsatilmagan'}</p>
+                    <p className="text-xs text-gray-400 truncate mt-1">{item.message}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="px-4 py-3 border-t border-navy-border flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => { void refreshNotifications() }}
+                  className="text-xs text-gray-400 hover:text-white"
+                >
+                  Yangilash
+                </button>
+                <Link href="/admin/messages" className="text-xs text-primary-400 hover:text-primary-300">
+                  Barchasi
+                </Link>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

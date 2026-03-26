@@ -203,11 +203,11 @@ export default function HeroSection() {
             transition={{ duration: 0.5, delay: 0.55 }}
             className="flex flex-wrap items-center gap-4"
           >
-            <Link href="/contact" className="btn-primary text-base px-8 py-3.5 group">
+            <Link href="/contact" className="btn-primary text-base px-8 h-14 group">
               Loyiha boshlash
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </Link>
-            <Link href="/projects" className="btn-secondary text-base px-8 py-3.5 group">
+            <Link href="/projects" className="btn-secondary text-base px-8 h-14 group">
               <span className="w-8 h-8 rounded-full flex items-center justify-center mr-1"
                 style={{ background: 'rgba(0,87,255,0.2)' }}>
                 <Play size={12} className="ml-0.5" />

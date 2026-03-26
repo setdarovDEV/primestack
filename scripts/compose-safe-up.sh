@@ -33,6 +33,23 @@ if [[ "${#SERVICES[@]}" -eq 0 ]]; then
   exit 1
 fi
 
+# If frontend/backend are recreated, also recreate nginx so upstream DNS is refreshed.
+needs_nginx=0
+has_nginx=0
+for svc in "${SERVICES[@]}"; do
+  case "$svc" in
+    frontend|backend)
+      needs_nginx=1
+      ;;
+    nginx)
+      has_nginx=1
+      ;;
+  esac
+done
+if [[ "$needs_nginx" -eq 1 && "$has_nginx" -eq 0 ]]; then
+  SERVICES+=("nginx")
+fi
+
 echo "Compose: ${COMPOSE_CMD[*]}"
 echo "Services: ${SERVICES[*]}"
 
@@ -52,4 +69,3 @@ fi
 
 "${COMPOSE_CMD[@]}" up "${UP_ARGS[@]}" "${SERVICES[@]}"
 "${COMPOSE_CMD[@]}" ps
-

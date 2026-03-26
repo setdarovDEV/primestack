@@ -76,7 +76,7 @@ export default function ProjectsSection() {
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-12">
           <AnimatedSection>
             <SectionBadge>Portfolio</SectionBadge>
-            <h2 className="font-display font-bold text-4xl md:text-5xl text-white">
+            <h2 className="font-display font-bold text-4xl md:text-5xl text-white leading-[1.22] pb-1">
               So'nggi <span className="gradient-text">ishlarimiz</span>
             </h2>
           </AnimatedSection>
@@ -91,7 +91,7 @@ export default function ProjectsSection() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {projects.map((project, i) => (
             <AnimatedSection key={project.title} delay={i * 0.1}>
-              <div className="relative rounded-2xl overflow-hidden card-hover group h-full"
+              <div className="relative rounded-2xl overflow-hidden card-hover group h-full flex flex-col"
                 style={{ border: '1px solid rgba(26,45,74,0.8)' }}>
                 {/* Image/Gradient placeholder */}
                 <div className={`relative h-48 bg-gradient-to-br ${project.gradient} overflow-hidden`}>
@@ -114,11 +114,11 @@ export default function ProjectsSection() {
                 </div>
 
                 {/* Content */}
-                <div className="p-5" style={{ background: 'rgba(15,30,53,0.9)' }}>
+                <div className="p-5 flex-1 flex flex-col" style={{ background: 'rgba(15,30,53,0.9)' }}>
                   <div className="text-xs text-gray-500 mb-1 font-mono">{project.client}</div>
                   <h3 className="font-display font-semibold text-white mb-2">{project.title}</h3>
-                  <p className="text-sm text-gray-400 mb-3 leading-relaxed">{project.description}</p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <p className="text-sm text-gray-400 mb-3 leading-relaxed line-clamp-4">{project.description}</p>
+                  <div className="flex flex-wrap gap-1.5 mt-auto">
                     {project.tags.map((tag) => (
                       <span key={tag} className="tag">{tag}</span>
                     ))}

@@ -220,9 +220,19 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token     string `json:"token"`
+	Token     string `json:"token,omitempty"`
 	ExpiresIn int    `json:"expires_in"`
 	User      User   `json:"user"`
+}
+
+type TwoFAChallengeResponse struct {
+	ChallengeID string `json:"challenge_id"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
+type VerifyTwoFARequest struct {
+	ChallengeID string `json:"challenge_id" binding:"required"`
+	Code        string `json:"code" binding:"required"`
 }
 
 type ContactRequest struct {

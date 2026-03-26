@@ -139,6 +139,12 @@ func (h *ContactHandler) AdminList(c *gin.Context) {
 	if page < 1 {
 		page = 1
 	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	if perPage > 200 {
+		perPage = 200
+	}
 	offset := (page - 1) * perPage
 
 	query := `SELECT id, name, company, phone, email, message, source_page, status, created_at FROM contact_messages`
@@ -192,6 +198,18 @@ func (h *ContactHandler) UpdateStatus(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, models.ErrorResp(err.Error()))
 		return
 	}
+	allowed := map[string]struct{}{
+		"new":     {},
+		"read":    {},
+		"replied": {},
+		"spam":    {},
+	}
+	body.Status = strings.ToLower(strings.TrimSpace(body.Status))
+	if _, ok := allowed[body.Status]; !ok {
+		c.JSON(http.StatusBadRequest, models.ErrorResp("Invalid status"))
+		return
+	}
+
 	_, err := h.db.Exec(`UPDATE contact_messages SET status=$1 WHERE id=$2`, body.Status, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResp("Failed to update status"))
