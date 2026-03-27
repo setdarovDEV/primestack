@@ -96,9 +96,11 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ""
         NEXT_PUBLIC_SITE_URL: https://primestack.uz
+        BACKEND_ORIGIN: "http://backend:8080"
     container_name: primestack_frontend
     environment:
       NEXT_PUBLIC_API_URL: ""
+      BACKEND_ORIGIN: "http://backend:8080"
     ports:
       - "3000:3000"
     depends_on:

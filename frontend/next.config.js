@@ -1,6 +1,13 @@
+const DEFAULT_LOCAL_BACKEND_ORIGIN = 'http://localhost:8080'
+const DEFAULT_PROD_BACKEND_ORIGIN = 'https://gracious-nurturing-production.up.railway.app'
+
+function isLoopbackHost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+}
+
 function normalizeBackendOrigin(raw) {
   let value = (raw || '').trim()
-  if (!value) return 'http://localhost:8080'
+  if (!value) return ''
   if (!/^https?:\/\//i.test(value)) {
     value = `http://${value}`
   }
@@ -12,11 +19,31 @@ function normalizeBackendOrigin(raw) {
     }
     return url.toString().replace(/\/$/, '')
   } catch {
-    return 'http://localhost:8080'
+    return ''
   }
 }
 
-const BACKEND_ORIGIN = normalizeBackendOrigin(process.env.BACKEND_ORIGIN)
+function resolveBackendOrigin() {
+  const fromBackendOrigin = normalizeBackendOrigin(process.env.BACKEND_ORIGIN)
+  if (fromBackendOrigin) return fromBackendOrigin
+
+  const fromPublicApi = normalizeBackendOrigin(process.env.NEXT_PUBLIC_API_URL)
+  if (fromPublicApi) {
+    try {
+      const parsed = new URL(fromPublicApi)
+      if (!isLoopbackHost(parsed.hostname)) return fromPublicApi
+    } catch {
+      // no-op
+    }
+  }
+
+  if ((process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    return DEFAULT_PROD_BACKEND_ORIGIN
+  }
+  return DEFAULT_LOCAL_BACKEND_ORIGIN
+}
+
+const BACKEND_ORIGIN = resolveBackendOrigin()
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
