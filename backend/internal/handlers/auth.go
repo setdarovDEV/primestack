@@ -525,6 +525,7 @@ func (h *AuthHandler) setSessionCookies(c *gin.Context, token string) error {
 	maxAge := h.jwtExpiry * 3600
 	secure := h.cookieSecure || isSecureRequest(c)
 	sameSite := sameSiteMode(secure)
+	cookieDomain := effectiveCookieDomain(h.cookieDomain, c.Request.Host, secure)
 
 	authCookie := &http.Cookie{
 		Name:     h.authCookieName,
@@ -545,9 +546,9 @@ func (h *AuthHandler) setSessionCookies(c *gin.Context, token string) error {
 		SameSite: sameSite,
 	}
 
-	if h.cookieDomain != "" {
-		authCookie.Domain = h.cookieDomain
-		csrfCookie.Domain = h.cookieDomain
+	if cookieDomain != "" {
+		authCookie.Domain = cookieDomain
+		csrfCookie.Domain = cookieDomain
 	}
 
 	http.SetCookie(c.Writer, authCookie)
@@ -558,6 +559,7 @@ func (h *AuthHandler) setSessionCookies(c *gin.Context, token string) error {
 func (h *AuthHandler) clearSessionCookies(c *gin.Context) {
 	secure := h.cookieSecure || isSecureRequest(c)
 	sameSite := sameSiteMode(secure)
+	cookieDomain := effectiveCookieDomain(h.cookieDomain, c.Request.Host, secure)
 	expiredAt := time.Unix(0, 0).UTC()
 
 	authCookie := &http.Cookie{
@@ -583,6 +585,9 @@ func (h *AuthHandler) clearSessionCookies(c *gin.Context) {
 	if h.cookieDomain != "" {
 		authCookie.Domain = h.cookieDomain
 		csrfCookie.Domain = h.cookieDomain
+	} else if cookieDomain != "" {
+		authCookie.Domain = cookieDomain
+		csrfCookie.Domain = cookieDomain
 	}
 
 	http.SetCookie(c.Writer, authCookie)
@@ -717,4 +722,24 @@ func sameSiteMode(secure bool) http.SameSite {
 		return http.SameSiteNoneMode
 	}
 	return http.SameSiteStrictMode
+}
+
+func effectiveCookieDomain(cfgDomain, reqHost string, secure bool) string {
+	cfgDomain = strings.TrimSpace(cfgDomain)
+	if cfgDomain != "" {
+		return cfgDomain
+	}
+	if !secure {
+		// For non-HTTPS keep host-only cookie to avoid issues on localhost.
+		return ""
+	}
+	host := strings.TrimSpace(reqHost)
+	if host == "" {
+		return ""
+	}
+	// Strip port if present.
+	if idx := strings.Index(host, ":"); idx > 0 {
+		host = host[:idx]
+	}
+	return host
 }
