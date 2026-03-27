@@ -72,6 +72,8 @@ func New(cfg *config.Config) (*Server, error) {
 		SMTPPort:              cfg.SMTPPort,
 		SMTPUser:              cfg.SMTPUser,
 		SMTPPass:              cfg.SMTPPass,
+		ResendAPIKey:          cfg.ResendAPIKey,
+		ResendFromEmail:       cfg.ResendFromEmail,
 		TwoFAEmail:            cfg.AdminTwoFAEmail,
 		TwoFACodeTTL:          time.Duration(cfg.TwoFACodeExpiryMinutes) * time.Minute,
 		TwoFAMaxAttempts:      cfg.TwoFAMaxAttempts,

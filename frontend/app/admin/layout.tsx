@@ -1,13 +1,14 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
   LayoutDashboard, Settings, Users, FolderOpen, Briefcase, FileText,
-  MessageSquare, Image, ChevronLeft, ChevronRight, LogOut, Bell, X,
-  Menu, Code2, Bot, Shield
+  MessageSquare, Image as ImageIcon, ChevronLeft, ChevronRight, LogOut, Bell, X,
+  Menu, Code2, Bot, Shield, User, ChevronDown
 } from 'lucide-react'
 import { adminApiFetch, apiFetch } from '@/lib/api'
 
@@ -21,7 +22,7 @@ const navItems = [
   { href: '/admin/messages', icon: MessageSquare, label: 'Xabarlar' },
   { href: '/admin/bot-leads', icon: Bot, label: 'Bot leadlar' },
   { href: '/admin/telegram-admins', icon: Shield, label: 'Bot adminlar' },
-  { href: '/admin/media', icon: Image, label: 'Media' },
+  { href: '/admin/media', icon: ImageIcon, label: 'Media' },
   { href: '/admin/settings', icon: Settings, label: 'Sozlamalar' },
 ]
 
@@ -65,9 +66,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [loadingNotifications, setLoadingNotifications] = useState(false)
   const [markingReadId, setMarkingReadId] = useState<number | null>(null)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const lastCountRef = useRef<number>(-1)
+  const profileRef = useRef<HTMLDivElement>(null)
   const isAuthPage = pathname === '/admin' || pathname === '/admin/login'
 
   const handleLogout = async () => {
@@ -135,7 +138,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     setNotificationsOpen(false)
+    setProfileMenuOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!profileRef.current) return
+      if (!profileRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const refreshNotifications = async () => {
     setLoadingNotifications(true)
@@ -306,9 +321,66 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary-500/60" />
               )}
             </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-xs font-bold text-white">A</div>
-              <span className="hidden md:block text-sm text-gray-300">Admin</span>
+            <div className="relative" ref={profileRef}>
+              <button
+                type="button"
+                onClick={() => setProfileMenuOpen((v) => !v)}
+                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                style={{ border: '1px solid rgba(26,45,74,0.6)', background: 'rgba(15,30,53,0.6)' }}
+              >
+                <div className="w-9 h-9 rounded-full overflow-hidden border border-navy-border bg-black/30 flex items-center justify-center">
+                  <Image src="/brand/primelogo.png" alt="PrimeStack" width={36} height={36} className="object-cover" />
+                </div>
+                <div className="hidden md:flex flex-col items-start">
+                  <span className="text-xs text-gray-500 leading-tight">Admin</span>
+                  <span className="text-sm font-semibold text-white leading-tight">PrimeStack</span>
+                </div>
+                <ChevronDown size={14} className={`text-gray-400 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {profileMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute right-0 mt-2 w-48 rounded-xl overflow-hidden z-50"
+                    style={{ background: 'rgba(8,14,31,0.98)', border: '1px solid rgba(26,45,74,0.9)', boxShadow: '0 12px 40px rgba(0,0,0,0.35)' }}
+                  >
+                    <div className="px-4 py-3 border-b border-navy-border">
+                      <p className="text-sm font-semibold text-white">PrimeStack</p>
+                      <p className="text-xs text-gray-500">Premium IT Solutions</p>
+                    </div>
+                    <div className="py-1 text-sm text-gray-200">
+                      <Link
+                        href="/admin/settings"
+                        className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 transition-colors"
+                        onClick={() => setProfileMenuOpen(false)}
+                      >
+                        <Settings size={15} className="text-gray-400" />
+                        Sozlamalar
+                      </Link>
+                      <Link
+                        href="/admin/settings#profile"
+                        className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 transition-colors"
+                        onClick={() => setProfileMenuOpen(false)}
+                      >
+                        <User size={15} className="text-gray-400" />
+                        Profil
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => { setProfileMenuOpen(false); void handleLogout() }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-400 hover:bg-red-400/10 transition-colors"
+                      >
+                        <LogOut size={15} />
+                        Chiqish
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </header>

@@ -37,6 +37,8 @@ type Config struct {
 	SMTPPort               int
 	SMTPUser               string
 	SMTPPass               string
+	ResendAPIKey           string
+	ResendFromEmail        string
 	AdminTwoFAEmail        string
 	TwoFACodeExpiryMinutes int
 	TwoFAMaxAttempts       int
@@ -107,6 +109,8 @@ func Load() *Config {
 		SMTPPort:               getEnvInt("SMTP_PORT", 587),
 		SMTPUser:               strings.TrimSpace(getEnv("SMTP_USER", "")),
 		SMTPPass:               strings.TrimSpace(getEnv("SMTP_PASS", "")),
+		ResendAPIKey:           strings.TrimSpace(getEnv("RESEND_API_KEY", "")),
+		ResendFromEmail:        strings.TrimSpace(getEnv("RESEND_FROM_EMAIL", "")),
 		AdminTwoFAEmail:        getEnv("ADMIN_2FA_EMAIL", "abbossetdarov3@gmail.com"),
 		TwoFACodeExpiryMinutes: twoFACodeExpiryMinutes,
 		TwoFAMaxAttempts:       twoFAMaxAttempts,

@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"net/http"
@@ -44,6 +47,8 @@ type AuthOptions struct {
 	SMTPPort              int
 	SMTPUser              string
 	SMTPPass              string
+	ResendAPIKey          string
+	ResendFromEmail       string
 	TwoFAEmail            string
 	TwoFACodeTTL          time.Duration
 	TwoFAMaxAttempts      int
@@ -83,6 +88,8 @@ type AuthHandler struct {
 	smtpPort              int
 	smtpUser              string
 	smtpPass              string
+	resendAPIKey          string
+	resendFromEmail       string
 	twoFAEmail            string
 	twoFACodeTTL          time.Duration
 	twoFAMaxAttempts      int
@@ -105,6 +112,10 @@ func NewAuthHandler(db *sql.DB, jwtSecret string, jwtExpiry int, adminEmail, adm
 	}
 	if opts.SMTPPort <= 0 {
 		opts.SMTPPort = 587
+	}
+	opts.ResendFromEmail = strings.TrimSpace(opts.ResendFromEmail)
+	if opts.ResendFromEmail == "" {
+		opts.ResendFromEmail = strings.TrimSpace(opts.SMTPUser)
 	}
 	if opts.TwoFACodeTTL <= 0 {
 		opts.TwoFACodeTTL = 10 * time.Minute
@@ -135,6 +146,8 @@ func NewAuthHandler(db *sql.DB, jwtSecret string, jwtExpiry int, adminEmail, adm
 		smtpPort:              opts.SMTPPort,
 		smtpUser:              strings.TrimSpace(opts.SMTPUser),
 		smtpPass:              opts.SMTPPass,
+		resendAPIKey:          strings.TrimSpace(opts.ResendAPIKey),
+		resendFromEmail:       opts.ResendFromEmail,
 		twoFAEmail:            opts.TwoFAEmail,
 		twoFACodeTTL:          opts.TwoFACodeTTL,
 		twoFAMaxAttempts:      opts.TwoFAMaxAttempts,
@@ -388,14 +401,14 @@ func (h *AuthHandler) sendTwoFACodeEmail(code string, user models.User, remoteIP
 	if target == "" {
 		return errors.New("2fa target email is empty")
 	}
-	host := strings.TrimSpace(h.smtpHost)
-	if host == "" || h.smtpPort <= 0 {
-		return errors.New("smtp configuration is incomplete")
-	}
 
 	from := strings.TrimSpace(h.smtpUser)
 	if from == "" {
 		from = "no-reply@primestack.uz"
+	}
+	resendFrom := strings.TrimSpace(h.resendFromEmail)
+	if resendFrom == "" {
+		resendFrom = from
 	}
 
 	subject := "PRIMESTACK Admin 2FA Code"
@@ -410,6 +423,15 @@ func (h *AuthHandler) sendTwoFACodeEmail(code string, user models.User, remoteIP
 	)
 	message := buildPlainEmail(from, target, subject, body)
 
+	if strings.TrimSpace(h.resendAPIKey) != "" {
+		return h.sendTwoFACodeViaResend(resendFrom, target, subject, body)
+	}
+
+	host := strings.TrimSpace(h.smtpHost)
+	if host == "" || h.smtpPort <= 0 {
+		return errors.New("smtp configuration is incomplete")
+	}
+
 	addr := fmt.Sprintf("%s:%d", host, h.smtpPort)
 	var auth smtp.Auth
 	if h.smtpUser != "" {
@@ -417,6 +439,51 @@ func (h *AuthHandler) sendTwoFACodeEmail(code string, user models.User, remoteIP
 	}
 
 	return smtp.SendMail(addr, auth, from, []string{target}, []byte(message))
+}
+
+func (h *AuthHandler) sendTwoFACodeViaResend(from, to, subject, body string) error {
+	apiKey := strings.TrimSpace(h.resendAPIKey)
+	if apiKey == "" {
+		return errors.New("resend api key is empty")
+	}
+	from = strings.TrimSpace(from)
+	if from == "" {
+		from = "PrimeStack <no-reply@primestack.uz>"
+	} else if strings.Contains(from, "@") && !strings.Contains(from, "<") {
+		from = "PrimeStack <" + from + ">"
+	}
+
+	payload := map[string]interface{}{
+		"from":    from,
+		"to":      []string{strings.TrimSpace(to)},
+		"subject": subject,
+		"text":    body,
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("resend send failed: %s (%d)", strings.TrimSpace(string(b)), resp.StatusCode)
+	}
+	return nil
 }
 
 func (h *AuthHandler) completeLogin(c *gin.Context, user models.User, attemptKey string) {
