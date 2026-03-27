@@ -1,14 +1,29 @@
 const ENV_API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/$/, '')
 
+function isLoopbackHost(value: string): boolean {
+  return value === 'localhost' || value === '127.0.0.1' || value === '::1'
+}
+
 function resolveApiBase(): string {
-  if (ENV_API_BASE) return ENV_API_BASE
   if (typeof window !== 'undefined') {
     const { hostname, origin } = window.location
+    // Safety: ignore localhost API base on real domains to prevent broken prod auth.
+    if (ENV_API_BASE) {
+      try {
+        const parsed = new URL(ENV_API_BASE)
+        if (!(isLoopbackHost(parsed.hostname) && !isLoopbackHost(hostname))) {
+          return ENV_API_BASE
+        }
+      } catch {
+        return ENV_API_BASE
+      }
+    }
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:8080'
     }
     return origin
   }
+  if (ENV_API_BASE) return ENV_API_BASE
   return 'http://localhost:8080'
 }
 
