@@ -1,4 +1,22 @@
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || 'http://localhost:8080'
+function normalizeBackendOrigin(raw) {
+  let value = (raw || '').trim()
+  if (!value) return 'http://localhost:8080'
+  if (!/^https?:\/\//i.test(value)) {
+    value = `http://${value}`
+  }
+
+  try {
+    const url = new URL(value)
+    if (url.hostname.endsWith('.railway.internal') && !url.port) {
+      url.port = '8080'
+    }
+    return url.toString().replace(/\/$/, '')
+  } catch {
+    return 'http://localhost:8080'
+  }
+}
+
+const BACKEND_ORIGIN = normalizeBackendOrigin(process.env.BACKEND_ORIGIN)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
