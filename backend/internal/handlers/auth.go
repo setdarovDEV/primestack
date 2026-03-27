@@ -524,6 +524,7 @@ func (h *AuthHandler) setSessionCookies(c *gin.Context, token string) error {
 
 	maxAge := h.jwtExpiry * 3600
 	secure := h.cookieSecure || isSecureRequest(c)
+	sameSite := sameSiteMode(secure)
 
 	authCookie := &http.Cookie{
 		Name:     h.authCookieName,
@@ -532,7 +533,7 @@ func (h *AuthHandler) setSessionCookies(c *gin.Context, token string) error {
 		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   secure,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: sameSite,
 	}
 	csrfCookie := &http.Cookie{
 		Name:     h.csrfCookieName,
@@ -541,7 +542,7 @@ func (h *AuthHandler) setSessionCookies(c *gin.Context, token string) error {
 		MaxAge:   maxAge,
 		HttpOnly: false,
 		Secure:   secure,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: sameSite,
 	}
 
 	if h.cookieDomain != "" {
@@ -556,6 +557,7 @@ func (h *AuthHandler) setSessionCookies(c *gin.Context, token string) error {
 
 func (h *AuthHandler) clearSessionCookies(c *gin.Context) {
 	secure := h.cookieSecure || isSecureRequest(c)
+	sameSite := sameSiteMode(secure)
 	expiredAt := time.Unix(0, 0).UTC()
 
 	authCookie := &http.Cookie{
@@ -566,7 +568,7 @@ func (h *AuthHandler) clearSessionCookies(c *gin.Context) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   secure,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: sameSite,
 	}
 	csrfCookie := &http.Cookie{
 		Name:     h.csrfCookieName,
@@ -576,7 +578,7 @@ func (h *AuthHandler) clearSessionCookies(c *gin.Context) {
 		MaxAge:   -1,
 		HttpOnly: false,
 		Secure:   secure,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: sameSite,
 	}
 	if h.cookieDomain != "" {
 		authCookie.Domain = h.cookieDomain
@@ -708,4 +710,11 @@ func isSecureRequest(c *gin.Context) bool {
 		return true
 	}
 	return strings.EqualFold(strings.TrimSpace(c.GetHeader("X-Forwarded-Proto")), "https")
+}
+
+func sameSiteMode(secure bool) http.SameSite {
+	if secure {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteStrictMode
 }
