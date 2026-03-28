@@ -219,10 +219,12 @@ export default function AdminLoginPage() {
               <h2 className="font-display font-semibold text-white text-xl mb-2">2FA qabul qiluvchini tanlang</h2>
               <p className="text-xs text-gray-400 mb-6">Kod yuboriladigan emailni tanlang.</p>
               <div className="space-y-3">
-                {(allowedTwoFAEmails.length > 0
-                  ? TWO_FA_RECIPIENTS.filter((item) => allowedTwoFAEmails.includes(item.email))
-                  : TWO_FA_RECIPIENTS
-                ).map((item) => (
+                {(() => {
+                  const recipientsByEmail = new Map(TWO_FA_RECIPIENTS.map((item) => [item.email, item]))
+                  const selectionEmails =
+                    allowedTwoFAEmails.length > 0 ? allowedTwoFAEmails : TWO_FA_RECIPIENTS.map((item) => item.email)
+                  return selectionEmails.map((email) => recipientsByEmail.get(email) || { label: email, email })
+                })().map((item) => (
                   <button
                     key={item.email}
                     type="button"
