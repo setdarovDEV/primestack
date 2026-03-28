@@ -215,8 +215,9 @@ type SEOMeta struct {
 // ─── Request / Response ───────────────────────────────────────
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email      string `json:"email" binding:"required,email"`
+	Password   string `json:"password" binding:"required"`
+	TwoFAEmail string `json:"two_fa_email,omitempty" binding:"omitempty,email"`
 }
 
 type LoginResponse struct {
@@ -226,8 +227,11 @@ type LoginResponse struct {
 }
 
 type TwoFAChallengeResponse struct {
-	ChallengeID string `json:"challenge_id"`
-	ExpiresIn   int    `json:"expires_in"`
+	ChallengeID       string   `json:"challenge_id,omitempty"`
+	ExpiresIn         int      `json:"expires_in,omitempty"`
+	TargetEmail       string   `json:"target_email,omitempty"`
+	RequiresSelection bool     `json:"requires_selection,omitempty"`
+	AllowedEmails     []string `json:"allowed_emails,omitempty"`
 }
 
 type VerifyTwoFARequest struct {

@@ -50,6 +50,7 @@ type AuthOptions struct {
 	ResendAPIKey          string
 	ResendFromEmail       string
 	TwoFAEmail            string
+	TwoFAEmails           []string
 	TwoFACodeTTL          time.Duration
 	TwoFAMaxAttempts      int
 }
@@ -91,6 +92,8 @@ type AuthHandler struct {
 	resendAPIKey          string
 	resendFromEmail       string
 	twoFAEmail            string
+	twoFAEmails           []string
+	twoFAEmailSet         map[string]struct{}
 	twoFACodeTTL          time.Duration
 	twoFAMaxAttempts      int
 	twoFAMu               sync.Mutex
@@ -123,9 +126,18 @@ func NewAuthHandler(db *sql.DB, jwtSecret string, jwtExpiry int, adminEmail, adm
 	if opts.TwoFAMaxAttempts < 1 {
 		opts.TwoFAMaxAttempts = 5
 	}
-	opts.TwoFAEmail = strings.TrimSpace(opts.TwoFAEmail)
+	opts.TwoFAEmail = strings.ToLower(strings.TrimSpace(opts.TwoFAEmail))
+	opts.TwoFAEmails = normalizeTwoFAEmails(opts.TwoFAEmails, opts.TwoFAEmail)
+	if len(opts.TwoFAEmails) > 0 {
+		opts.TwoFAEmail = opts.TwoFAEmails[0]
+	}
 	if opts.TwoFAEmail == "" {
 		opts.TwoFAEmail = fallbackAdminTwoFAEmail
+		opts.TwoFAEmails = normalizeTwoFAEmails(opts.TwoFAEmails, opts.TwoFAEmail)
+	}
+	twoFAEmailSet := make(map[string]struct{}, len(opts.TwoFAEmails))
+	for _, email := range opts.TwoFAEmails {
+		twoFAEmailSet[email] = struct{}{}
 	}
 
 	return &AuthHandler{
@@ -149,6 +161,8 @@ func NewAuthHandler(db *sql.DB, jwtSecret string, jwtExpiry int, adminEmail, adm
 		resendAPIKey:          strings.TrimSpace(opts.ResendAPIKey),
 		resendFromEmail:       opts.ResendFromEmail,
 		twoFAEmail:            opts.TwoFAEmail,
+		twoFAEmails:           opts.TwoFAEmails,
+		twoFAEmailSet:         twoFAEmailSet,
 		twoFACodeTTL:          opts.TwoFACodeTTL,
 		twoFAMaxAttempts:      opts.TwoFAMaxAttempts,
 		twoFAChallenges:       make(map[string]twoFAChallenge),
@@ -201,7 +215,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 		if h.allowEnvAdminFallback && req.Email == h.adminEmail && req.Password == h.adminPass && h.adminPass != "" {
 			user = models.User{ID: 1, FullName: "Super Admin", Email: req.Email, RoleID: 1, Role: "super_admin", Status: "active"}
-			h.issueTwoFAChallenge(c, user, attemptKey)
+			h.issueTwoFAChallenge(c, user, attemptKey, req.TwoFAEmail)
 			return
 		}
 
@@ -229,7 +243,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	h.issueTwoFAChallenge(c, user, attemptKey)
+	if req.TwoFAEmail == "" && len(h.twoFAEmails) > 1 {
+		c.JSON(http.StatusOK, models.Success(models.TwoFAChallengeResponse{
+			RequiresSelection: true,
+			AllowedEmails:     h.twoFAEmails,
+		}))
+		return
+	}
+
+	h.issueTwoFAChallenge(c, user, attemptKey, req.TwoFAEmail)
 }
 
 func (h *AuthHandler) Verify2FA(c *gin.Context) {
@@ -289,14 +311,20 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	}))
 }
 
-func (h *AuthHandler) issueTwoFAChallenge(c *gin.Context, user models.User, attemptKey string) {
-	challengeID, code, err := h.createTwoFAChallenge(user, c.ClientIP())
+func (h *AuthHandler) issueTwoFAChallenge(c *gin.Context, user models.User, attemptKey, requestedEmail string) {
+	targetEmail, err := h.resolveTwoFATargetEmail(requestedEmail)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResp("Invalid 2FA email"))
+		return
+	}
+
+	challengeID, code, err := h.createTwoFAChallenge(user, c.ClientIP(), targetEmail)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResp("Failed to initialize 2FA flow"))
 		return
 	}
 
-	if err := h.sendTwoFACodeEmail(code, user, c.ClientIP()); err != nil {
+	if err := h.sendTwoFACodeEmail(code, user, c.ClientIP(), targetEmail); err != nil {
 		log.Printf("2FA email send failed: %v", err)
 		h.deleteTwoFAChallenge(challengeID)
 		c.JSON(http.StatusServiceUnavailable, models.ErrorResp("2FA code could not be sent"))
@@ -309,10 +337,11 @@ func (h *AuthHandler) issueTwoFAChallenge(c *gin.Context, user models.User, atte
 	c.JSON(http.StatusOK, models.Success(models.TwoFAChallengeResponse{
 		ChallengeID: challengeID,
 		ExpiresIn:   int(h.twoFACodeTTL.Seconds()),
+		TargetEmail: targetEmail,
 	}))
 }
 
-func (h *AuthHandler) createTwoFAChallenge(user models.User, remoteIP string) (string, string, error) {
+func (h *AuthHandler) createTwoFAChallenge(user models.User, remoteIP, targetEmail string) (string, string, error) {
 	challengeID, err := randomTokenString(24)
 	if err != nil {
 		return "", "", err
@@ -330,7 +359,7 @@ func (h *AuthHandler) createTwoFAChallenge(user models.User, remoteIP string) (s
 		ExpiresAt:  now.Add(h.twoFACodeTTL),
 		Attempts:   0,
 		RemoteIP:   strings.TrimSpace(remoteIP),
-		TargetMail: h.twoFAEmail,
+		TargetMail: targetEmail,
 	}
 
 	h.twoFAMu.Lock()
@@ -396,8 +425,40 @@ func (h *AuthHandler) pruneTwoFAChallengesLocked(now time.Time) {
 	}
 }
 
-func (h *AuthHandler) sendTwoFACodeEmail(code string, user models.User, remoteIP string) error {
-	target := strings.TrimSpace(h.twoFAEmail)
+func normalizeTwoFAEmails(emails []string, fallback string) []string {
+	seen := make(map[string]struct{})
+	out := make([]string, 0, len(emails)+1)
+	add := func(value string) {
+		v := strings.ToLower(strings.TrimSpace(value))
+		if v == "" {
+			return
+		}
+		if _, exists := seen[v]; exists {
+			return
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	for _, email := range emails {
+		add(email)
+	}
+	add(fallback)
+	return out
+}
+
+func (h *AuthHandler) resolveTwoFATargetEmail(requested string) (string, error) {
+	requested = strings.ToLower(strings.TrimSpace(requested))
+	if requested == "" {
+		return h.twoFAEmail, nil
+	}
+	if _, ok := h.twoFAEmailSet[requested]; ok {
+		return requested, nil
+	}
+	return "", fmt.Errorf("unsupported 2fa email")
+}
+
+func (h *AuthHandler) sendTwoFACodeEmail(code string, user models.User, remoteIP, target string) error {
+	target = strings.TrimSpace(target)
 	if target == "" {
 		return errors.New("2fa target email is empty")
 	}

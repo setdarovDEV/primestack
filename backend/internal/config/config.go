@@ -40,6 +40,7 @@ type Config struct {
 	ResendAPIKey           string
 	ResendFromEmail        string
 	AdminTwoFAEmail        string
+	AdminTwoFAEmails       []string
 	TwoFACodeExpiryMinutes int
 	TwoFAMaxAttempts       int
 }
@@ -77,6 +78,7 @@ func Load() *Config {
 	if twoFAMaxAttempts > 10 {
 		twoFAMaxAttempts = 10
 	}
+	adminTwoFAEmail, adminTwoFAEmails := getAdminTwoFAEmails()
 
 	return &Config{
 		DatabaseURL:            getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/primestack?sslmode=disable"),
@@ -111,10 +113,59 @@ func Load() *Config {
 		SMTPPass:               strings.TrimSpace(getEnv("SMTP_PASS", "")),
 		ResendAPIKey:           strings.TrimSpace(getEnv("RESEND_API_KEY", "")),
 		ResendFromEmail:        strings.TrimSpace(getEnv("RESEND_FROM_EMAIL", "")),
-		AdminTwoFAEmail:        getEnv("ADMIN_2FA_EMAIL", "abbossetdarov3@gmail.com"),
+		AdminTwoFAEmail:        adminTwoFAEmail,
+		AdminTwoFAEmails:       adminTwoFAEmails,
 		TwoFACodeExpiryMinutes: twoFACodeExpiryMinutes,
 		TwoFAMaxAttempts:       twoFAMaxAttempts,
 	}
+}
+
+func getAdminTwoFAEmails() (string, []string) {
+	adminTwoFAEmail := strings.ToLower(strings.TrimSpace(getEnv("ADMIN_2FA_EMAIL", "abbossetdarov3@gmail.com")))
+	adminTwoFAEmails := mergeEmailList(parseEmailList(getEnv("ADMIN_2FA_EMAILS", "")), adminTwoFAEmail)
+	return adminTwoFAEmail, adminTwoFAEmails
+}
+
+func parseEmailList(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	separators := []string{",", ";", "\n"}
+	normalized := raw
+	for _, sep := range separators {
+		normalized = strings.ReplaceAll(normalized, sep, ",")
+	}
+	parts := strings.Split(normalized, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		value := strings.TrimSpace(part)
+		if value == "" {
+			continue
+		}
+		out = append(out, value)
+	}
+	return out
+}
+
+func mergeEmailList(list []string, fallback string) []string {
+	seen := make(map[string]struct{})
+	out := make([]string, 0, len(list)+1)
+	add := func(value string) {
+		v := strings.ToLower(strings.TrimSpace(value))
+		if v == "" {
+			return
+		}
+		if _, exists := seen[v]; exists {
+			return
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	for _, value := range list {
+		add(value)
+	}
+	add(fallback)
+	return out
 }
 
 func getEnv(key, fallback string) string {

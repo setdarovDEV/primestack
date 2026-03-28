@@ -75,6 +75,7 @@ func New(cfg *config.Config) (*Server, error) {
 		ResendAPIKey:          cfg.ResendAPIKey,
 		ResendFromEmail:       cfg.ResendFromEmail,
 		TwoFAEmail:            cfg.AdminTwoFAEmail,
+		TwoFAEmails:           cfg.AdminTwoFAEmails,
 		TwoFACodeTTL:          time.Duration(cfg.TwoFACodeExpiryMinutes) * time.Minute,
 		TwoFAMaxAttempts:      cfg.TwoFAMaxAttempts,
 	})
